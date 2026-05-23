@@ -27,6 +27,8 @@ def _build_env() -> Environment:
     )
     env.filters["yaml_str"] = _yaml_str
     env.filters["yaml_list"] = _yaml_list
+    env.filters["mmss"] = _mmss
+    env.globals["ytlink"] = _ytlink
     return env
 
 
@@ -38,6 +40,22 @@ def _yaml_str(value: str) -> str:
 def _yaml_list(items: list[str]) -> str:
     """Emit a YAML flow-style list of strings."""
     return "[" + ", ".join(_yaml_str(i) for i in items) + "]"
+
+
+def _mmss(seconds_value: float) -> str:
+    """Format seconds as MM:SS or HH:MM:SS depending on magnitude."""
+    total = int(seconds_value)
+    h, rem = divmod(total, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h:02d}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+def _ytlink(base_url: str, seconds_value: float) -> str:
+    """Build a YouTube deep-link with &t=Ns query suffix."""
+    separator = "&" if "?" in base_url else "?"
+    return f"{base_url}{separator}t={int(seconds_value)}s"
 
 
 def render(doc: StructuredDoc, transcript: Transcript) -> str:

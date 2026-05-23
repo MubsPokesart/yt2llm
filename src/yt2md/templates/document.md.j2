@@ -19,3 +19,9 @@ works_mentioned: {{ frontmatter.works_mentioned | yaml_list }}
 ## TL;DR
 
 {{ tldr }}
+
+## Key Takeaways
+
+{% for t in takeaways -%}
+- {{ t.text }} [[{{ t.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, t.timestamp_s) }})
+{% endfor %}
