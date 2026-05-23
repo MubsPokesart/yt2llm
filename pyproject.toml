@@ -54,8 +54,9 @@ ignore = [
     "ISC001", # conflicts with formatter
     "FIX",    # allow TODO/FIXME during dev
     "TD",     # ditto
-    "ANN101", # self type annotation
-    "ANN102", # cls type annotation
+    "ANN101", # self type annotation (removed in newer ruff)
+    "ANN102", # cls type annotation (removed in newer ruff)
+    "CPY",    # copyright notices not required
 ]
 
 [tool.ruff.lint.mccabe]

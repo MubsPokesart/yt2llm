@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.14
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.1.0
+    hooks:
+      - id: mypy
+        args: [--strict, "--explicit-package-bases", "--namespace-packages", src/yt2md]
+        additional_dependencies:
+          - pydantic>=2.7
+          - pydantic-settings>=2.3
+        pass_filenames: false
+  - repo: local
+    hooks:
+      - id: max-file-lines
+        name: max file lines (400)
+        entry: 'python -c "import sys; [sys.exit(f''{f}: too long ({sum(1 for _ in open(f, encoding=\"utf-8\"))} > 400)'') for f in sys.argv[1:] if sum(1 for _ in open(f, encoding=''utf-8'')) > 400]"'
+        language: system
+        files: ^src/.*\.py$
+      - id: pytest-fast
+        name: pytest unit tests (fast, no network)
+        entry: python -c "import os, subprocess, sys; sys.exit(0) if not os.path.isdir('tests/unit') else sys.exit(subprocess.call(['uv','run','pytest','tests/unit','-q']))"
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
