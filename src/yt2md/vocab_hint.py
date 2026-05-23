@@ -115,6 +115,61 @@ def format_for_openai(hints: VocabularyHints, *, max_tokens: int = DEFAULT_TOKEN
     return _truncate_to_tokens(full, max_tokens)
 
 
+def format_for_whisper(hints: VocabularyHints, *, max_tokens: int = DEFAULT_TOKEN_BUDGET) -> str:
+    """Format hints as a natural-language paragraph for Whisper's `initial_prompt`.
+
+    Whisper mimics style/capitalization rather than following instructions.
+    Sentences are constructed so the names appear in natural grammatical contexts.
+    """
+    sentences: list[str] = []
+
+    opener = _build_opener(hints)
+    if opener:
+        sentences.append(opener)
+
+    if hints.people:
+        sentences.append(f"The speakers include {_join_oxford(hints.people)}.")
+
+    if hints.works:
+        sentences.append(f"Works referenced include {_join_oxford(hints.works)}.")
+
+    if hints.organizations:
+        sentences.append(f"Affiliations mentioned: {_join_oxford(hints.organizations)}.")
+
+    if hints.concepts:
+        sentences.append(f"Concepts discussed include {_join_oxford(hints.concepts)}.")
+
+    if not sentences:
+        # Fallback minimal sentence — Whisper expects SOME content.
+        sentences.append(f"This is a transcript from {hints.channel or 'a video'}.")
+
+    full = " ".join(sentences)
+    return _truncate_to_tokens(full, max_tokens)
+
+
+def _build_opener(hints: VocabularyHints) -> str:
+    if hints.channel and hints.title:
+        return f'This is a transcript of an episode of {hints.channel} titled "{hints.title}".'
+    if hints.channel:
+        return f"This is a transcript from {hints.channel}."
+    if hints.title:
+        return f'This is a transcript of "{hints.title}".'
+    return ""
+
+
+_PAIR_LENGTH = 2
+
+
+def _join_oxford(items: list[str]) -> str:
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == _PAIR_LENGTH:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+
 def _truncate_to_tokens(text: str, max_tokens: int) -> str:
     """Truncate `text` so the token count does not exceed `max_tokens`.
 
