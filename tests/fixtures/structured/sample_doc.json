@@ -1,0 +1,35 @@
+{
+  "frontmatter": {
+    "title": "Dopamine, Motivation & Drive",
+    "channel": "Huberman Lab",
+    "url": "https://www.youtube.com/watch?v=abc123",
+    "video_id": "abc123",
+    "published": "2024-03-15",
+    "duration_seconds": 5025,
+    "captured_at": "2026-05-23",
+    "schema_version": 1,
+    "genre": "podcast",
+    "speakers": ["Andrew Huberman"],
+    "topics": ["dopamine", "motivation"],
+    "people_mentioned": ["Robert Sapolsky"],
+    "works_mentioned": ["The Molecule of More"]
+  },
+  "tldr": "Huberman reframes dopamine as the molecule of pursuit.",
+  "takeaways": [
+    {"text": "Dopamine signals anticipation, not reward.", "timestamp_s": 252.0}
+  ],
+  "concepts": [
+    {"name": "Reward Prediction Error", "definition": "Gap between expected and actual reward.", "timestamp_s": 510.0}
+  ],
+  "references": [
+    {"kind": "book", "name": "The Molecule of More", "context": "Cited as accessible primer.", "timestamp_s": 902.0}
+  ],
+  "quotes": [
+    {"text": "Pursuit, not pleasure.", "speaker": "Andrew Huberman", "timestamp_s": 754.0}
+  ],
+  "sections": [
+    {"heading": "What dopamine does", "body": "Huberman opens by distinguishing tonic and phasic dopamine.", "timestamp_s": 0.0}
+  ],
+  "open_questions": ["D1 vs D2 receptor roles?"],
+  "speaker_name_map": {"SPEAKER_00": "Andrew Huberman"}
+}
