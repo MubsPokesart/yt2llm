@@ -14,6 +14,8 @@ repos:
           - pydantic>=2.7
           - pydantic-settings>=2.3
           - jinja2>=3.1
+          - openai>=1.30
+          - tenacity>=8.3
         pass_filenames: false
   - repo: local
     hooks:

@@ -9,9 +9,30 @@ Adapter is split out for unit testing without network.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from yt2md.models import Segment, Transcript, Word
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from yt2md.errors import TranscriptionError
+from yt2md.models import Segment, Transcript, VideoMetadata, Word
+from yt2md.vocab_hint import extract_hints, format_for_openai
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from yt2md.config import Config
 
 
 def normalize_openai_response(raw: dict[str, Any], *, model_id: str) -> Transcript:
@@ -62,3 +83,62 @@ def _collect_speakers(segments: list[Segment]) -> list[str]:
             seen.add(s.speaker)
             out.append(s.speaker)
     return out
+
+
+@retry(
+    retry=retry_if_exception_type((
+        RateLimitError,
+        APITimeoutError,
+        APIConnectionError,
+        InternalServerError,
+    )),
+    wait=wait_exponential(multiplier=2, min=2, max=30),
+    stop=stop_after_attempt(4),
+    reraise=True,
+)
+def _call_openai_transcribe(
+    client: OpenAI,
+    audio_path: Path,
+    model: str,
+    prompt: str | None,
+) -> object:
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "response_format": "verbose_json",
+        "timestamp_granularities": ["word", "segment"],
+    }
+    if prompt:
+        kwargs["prompt"] = prompt
+    with audio_path.open("rb") as f:
+        kwargs["file"] = f
+        return client.audio.transcriptions.create(**kwargs)
+
+
+def transcribe_openai(
+    audio: Path,
+    metadata: VideoMetadata,
+    *,
+    cfg: Config,
+) -> tuple[Transcript, dict[str, Any]]:
+    """Transcribe `audio` with gpt-4o-transcribe.
+
+    Returns (normalized_transcript, raw_response_dict).
+    """
+    if cfg.openai_api_key is None:
+        msg = "OPENAI_API_KEY not set"
+        raise TranscriptionError(msg)
+
+    client = OpenAI(api_key=cfg.openai_api_key.get_secret_value())
+    prompt = format_for_openai(extract_hints(metadata)) if cfg.use_transcription_hint else None
+
+    try:
+        response = _call_openai_transcribe(client, audio, cfg.transcription_model, prompt)
+    except Exception as e:
+        msg = f"OpenAI transcribe failed: {e}"
+        raise TranscriptionError(msg) from e
+
+    raw: dict[str, Any] = (
+        response.model_dump() if hasattr(response, "model_dump") else dict(response)  # type: ignore[call-overload]
+    )
+    transcript = normalize_openai_response(raw, model_id=cfg.transcription_model)
+    return transcript, raw
