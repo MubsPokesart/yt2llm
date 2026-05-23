@@ -94,6 +94,17 @@ max-nested-blocks = 4
     "S404",    # subprocess import allowed in tests (mocked)
     "ARG002",  # pytest fixtures injected for side-effects only look "unused"
 ]
+"src/yt2md/cli.py" = [
+    "FBT001",   # typer callbacks receive bool positional arg by convention
+    "FBT002",   # typer CLI flags are bool options with False defaults
+    "PLR0913",  # typer commands legitimately have many parameters
+    "PLR0917",  # typer commands legitimately have many positional parameters
+    "PLR0912",  # typer main() branches on many CLI options
+    "PLR0915",  # typer main() has many statements for CLI setup
+    "C901",     # typer main() complexity is driven by option count, not logic
+    "TC003",    # Path used at runtime in typer Annotated signatures
+    "ARG001",   # version arg consumed by eager callback, not function body
+]
 "src/yt2md/prompts/**" = ["E501"]
 "src/yt2md/templates/**" = ["E501"]
 "scripts/**" = ["INP001", "S404"]
