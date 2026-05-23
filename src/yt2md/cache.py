@@ -12,14 +12,18 @@ This module exposes:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
 T = TypeVar("T")
+
+FINGERPRINT_LENGTH = 12
 
 
 @dataclass(frozen=True)
@@ -94,3 +98,14 @@ def cached(
         raise
 
     return result
+
+
+def fingerprint(*parts: Any) -> str:  # noqa: ANN401  -- accepts arbitrary JSON-serializable inputs
+    """Deterministic short hash of the given parts, suitable for cache keys in filenames.
+
+    Order-sensitive. Stable across processes and Python versions (uses SHA-256 over a
+    canonical JSON encoding of the parts tuple).
+    """
+    canonical = json.dumps(parts, sort_keys=True, default=str).encode("utf-8")
+    digest = hashlib.sha256(canonical).hexdigest()
+    return digest[:FINGERPRINT_LENGTH]
