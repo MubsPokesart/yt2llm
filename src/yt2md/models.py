@@ -146,3 +146,24 @@ class Frontmatter(BaseModel):
     topics: list[str]
     people_mentioned: list[str]
     works_mentioned: list[str]
+
+
+# Bump this when the StructuredDoc schema changes meaning (renamed fields,
+# restructured sections, changed semantics). Adding an optional field does NOT bump.
+# Bumping invalidates schema_version checks in existing output files and is
+# required to make `yt2md regen --all` regenerate them.
+CURRENT_SCHEMA_VERSION = 1
+
+
+class StructuredDoc(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    frontmatter: Frontmatter
+    tldr: str
+    takeaways: list[Takeaway]
+    concepts: list[Concept]
+    references: list[Reference]
+    quotes: list[Quote]
+    sections: list[DetailedSection]
+    open_questions: list[str]
+    speaker_name_map: dict[str, str]
