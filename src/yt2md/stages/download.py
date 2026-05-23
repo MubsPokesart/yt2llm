@@ -4,18 +4,23 @@ Splits naturally into:
   - normalize_metadata(info_dict) → VideoMetadata + raises typed errors on bad video states
   - _map_ytdlp_error(exception) → typed YT2MDError subclass
   - download(url, cfg) → (source_audio_path, VideoMetadata, raw_info_dict)
-
-This file holds the adapter (normalize_metadata). The yt-dlp call lives in the
-download() function added by a later task; this task is testable without network.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import date
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from yt_dlp import YoutubeDL  # type: ignore[import-untyped]
+from yt_dlp.utils import DownloadError as YtdlpDownloadError  # type: ignore[import-untyped]
 
 from yt2md.errors import DownloadError, LivestreamNotEndedError, VideoUnavailableError, YT2MDError
 from yt2md.models import Chapter, VideoMetadata
+
+if TYPE_CHECKING:
+    from yt2md.config import Config
 
 UPLOAD_DATE_LEN = 8
 
@@ -86,3 +91,49 @@ def map_ytdlp_error(exc: Exception) -> YT2MDError:
     if "live event" in msg or "is live" in msg or "premiere" in msg:
         return LivestreamNotEndedError(str(exc))
     return DownloadError(str(exc))
+
+
+_VIDEO_ID_RE = re.compile(r"(?:v=|youtu\.be/|/embed/|/shorts/)([\w-]+)")
+
+
+def _extract_video_id(url: str) -> str:
+    """Extract the 11-char YouTube video id from a URL."""
+    match = _VIDEO_ID_RE.search(url)
+    if match is None:
+        msg = f"Could not extract video_id from URL: {url}"
+        raise VideoUnavailableError(msg)
+    return match.group(1)
+
+
+def download(url: str, *, cfg: Config) -> tuple[Path, VideoMetadata, dict[str, Any]]:
+    """Download audio + metadata via yt-dlp.
+
+    Returns:
+        (source_audio_path, normalized_metadata, raw_info_dict)
+    """
+    cache_dir = cfg.cache_dir
+    video_id = _extract_video_id(url)
+    out_dir = cache_dir / video_id
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    opts: dict[str, Any] = {
+        "format": "bestaudio/best",
+        "outtmpl": str(out_dir / "source_audio.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+    }
+    if cfg.cookies_from_browser:
+        opts["cookiesfrombrowser"] = (cfg.cookies_from_browser,)
+    if cfg.cookies_file:
+        opts["cookiefile"] = str(cfg.cookies_file)
+
+    try:
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = Path(ydl.prepare_filename(info))
+    except YtdlpDownloadError as e:
+        raise map_ytdlp_error(e) from e
+
+    metadata = normalize_metadata(info)
+    return filename, metadata, info
