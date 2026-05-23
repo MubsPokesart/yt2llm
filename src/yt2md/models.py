@@ -125,3 +125,24 @@ class DetailedSection(BaseModel):
     heading: str
     body: str
     timestamp_s: float = Field(ge=0.0)
+
+
+Genre = Literal["podcast", "lecture", "tutorial", "talk", "interview", "other"]
+
+
+class Frontmatter(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    channel: str
+    url: str
+    video_id: str
+    published: date
+    duration_seconds: int = Field(ge=0)
+    captured_at: date
+    schema_version: int = Field(ge=1)
+    genre: Genre
+    speakers: list[str]
+    topics: list[str]
+    people_mentioned: list[str]
+    works_mentioned: list[str]
