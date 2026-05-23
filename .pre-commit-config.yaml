@@ -23,7 +23,7 @@ repos:
         files: ^src/.*\.py$
       - id: pytest-fast
         name: pytest unit tests (fast, no network)
-        entry: python -c "import os, subprocess, sys; sys.exit(0) if not os.path.isdir('tests/unit') else sys.exit(subprocess.call(['uv','run','pytest','tests/unit','-q']))"
+        entry: python scripts/pytest_fast_hook.py
         language: system
         pass_filenames: false
         stages: [pre-commit]

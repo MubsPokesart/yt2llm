@@ -57,6 +57,7 @@ ignore = [
     "ANN101", # self type annotation (removed in newer ruff)
     "ANN102", # cls type annotation (removed in newer ruff)
     "CPY",    # copyright notices not required
+    "DOC",    # pydoclint — docstring rigor not required everywhere
 ]
 
 [tool.ruff.lint.mccabe]
@@ -74,6 +75,7 @@ max-nested-blocks = 4
 "tests/**" = ["S101", "PLR2004", "ANN", "PLR0915"]
 "src/yt2md/prompts/**" = ["E501"]
 "src/yt2md/templates/**" = ["E501"]
+"scripts/**" = ["INP001", "S404"]
 
 [tool.mypy]
 strict = true
