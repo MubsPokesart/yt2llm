@@ -13,10 +13,13 @@ This module exposes:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -55,3 +58,39 @@ class ArtifactPaths:
 
     def structured(self, *, input_hash: str) -> Path:
         return self.root / f"structured-{input_hash}.json"
+
+
+def cached(
+    *,
+    path: Path,
+    produce: Callable[[], T],
+    load: Callable[[Path], T],
+    dump: Callable[[T, Path], None],
+) -> T:
+    """Read the artifact at `path` if present; else produce, write atomically, return.
+
+    Atomicity: dump writes to a sibling `.tmp` file, which is then renamed via
+    `Path.replace` (POSIX rename is atomic). On producer failure, no artifact is
+    left behind.
+    """
+    if path.exists():
+        return load(path)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        result = produce()
+    except BaseException:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+    try:
+        dump(result, tmp)
+        tmp.replace(path)
+    except BaseException:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+    return result
