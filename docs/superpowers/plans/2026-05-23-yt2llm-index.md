@@ -148,7 +148,7 @@ Mark phases here as you complete them:
 - [x] Phase 1 — Bootstrap + Foundations
 - [x] Phase 2 — Deterministic stages
 - [x] Phase 3 — API-bound stages
-- [ ] Phase 4 — Orchestrator + CLI
+- [x] Phase 4 — Orchestrator + CLI
 
 Each phase plan has its own checkbox list of tasks. Mark off as you go.
 
