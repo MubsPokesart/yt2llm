@@ -59,3 +59,26 @@ class TestProducerFailureLeavesNoArtifact:
         assert not target.exists()
         leftover = list(tmp_path.glob("*"))
         assert leftover == []
+
+
+class TestCacheHit:
+    def test_hit_skips_producer(self, tmp_path: Path) -> None:
+        target = tmp_path / "artifact.txt"
+        target.write_text("prewritten", encoding="utf-8")
+        calls: list[int] = []
+
+        def produce() -> str:
+            calls.append(1)
+            return "should-not-be-called"
+
+        result = cached(path=target, produce=produce, load=_load_str, dump=_dump_str)
+        assert result == "prewritten"
+        assert calls == []
+
+    def test_hit_returns_load_result(self, tmp_path: Path) -> None:
+        target = tmp_path / "artifact.txt"
+        target.write_text("from-disk", encoding="utf-8")
+        result = cached(
+            path=target, produce=lambda: "from-producer", load=_load_str, dump=_dump_str
+        )
+        assert result == "from-disk"
