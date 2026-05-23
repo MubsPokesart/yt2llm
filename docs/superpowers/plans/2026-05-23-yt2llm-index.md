@@ -145,7 +145,7 @@ After completing each phase, choose:
 
 Mark phases here as you complete them:
 
-- [ ] Phase 1 — Bootstrap + Foundations
+- [x] Phase 1 — Bootstrap + Foundations
 - [ ] Phase 2 — Deterministic stages
 - [ ] Phase 3 — API-bound stages
 - [ ] Phase 4 — Orchestrator + CLI
