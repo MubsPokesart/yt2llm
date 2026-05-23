@@ -43,6 +43,7 @@ packages = ["src/yt2md"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/yt2md/templates/document.md.j2" = "yt2md/templates/document.md.j2"
+"src/yt2md/prompts/structure.md" = "yt2md/prompts/structure.md"
 
 [tool.ruff]
 line-length = 100
