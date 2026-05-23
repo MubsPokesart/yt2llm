@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from yt2md.errors import LivestreamNotEndedError, VideoUnavailableError
+from yt2md.errors import DownloadError, LivestreamNotEndedError, VideoUnavailableError, YT2MDError
 from yt2md.models import Chapter, VideoMetadata
 
 UPLOAD_DATE_LEN = 8
@@ -63,3 +63,26 @@ def normalize_metadata(info: dict[str, Any]) -> VideoMetadata:
         tags=list(info.get("tags") or []),
         language=info.get("language"),
     )
+
+
+def map_ytdlp_error(exc: Exception) -> YT2MDError:
+    """Map a yt-dlp exception's message to a typed YT2MDError subclass.
+
+    yt-dlp's exception hierarchy isn't fine-grained, so we match on substrings.
+    yt-dlp version is pinned in pyproject.toml; bump intentionally and re-test on upgrade.
+    """
+    msg = str(exc).lower()
+
+    cookie_hint = "Pass --cookies-from-browser firefox or --cookies cookies.txt."
+
+    if "private video" in msg or "video unavailable" in msg or "has been removed" in msg:
+        return VideoUnavailableError(str(exc))
+    if "confirm your age" in msg or ("age" in msg and "restrict" in msg):
+        return VideoUnavailableError(f"Age-restricted. {cookie_hint}")
+    if "members-only" in msg or "members only" in msg or "join this channel" in msg:
+        return VideoUnavailableError(f"Members-only. {cookie_hint}")
+    if "not made this video available in your country" in msg or "geo" in msg:
+        return VideoUnavailableError(str(exc))
+    if "live event" in msg or "is live" in msg or "premiere" in msg:
+        return LivestreamNotEndedError(str(exc))
+    return DownloadError(str(exc))
