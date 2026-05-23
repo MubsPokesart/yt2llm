@@ -25,3 +25,13 @@ def local_whisper_cost(*, duration_s: float) -> float:
         msg = "duration_s must be non-negative"
         raise ValueError(msg)
     return 0.0
+
+
+def gemini_flash_cost(*, input_tokens: int, output_tokens: int) -> float:
+    """Cost in USD for a Gemini 3 Flash call with the given token counts."""
+    if input_tokens < 0 or output_tokens < 0:
+        msg = "token counts must be non-negative"
+        raise ValueError(msg)
+    in_cost = (input_tokens / 1_000_000.0) * GEMINI_3_FLASH_INPUT_USD_PER_MTOK
+    out_cost = (output_tokens / 1_000_000.0) * GEMINI_3_FLASH_OUTPUT_USD_PER_MTOK
+    return in_cost + out_cost
