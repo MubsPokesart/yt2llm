@@ -10,10 +10,9 @@ behavior change.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import string
 
-if TYPE_CHECKING:
-    from yt2md.models import Transcript
+from yt2md.models import Segment, Transcript, Word
 
 CLEANER_VERSION = 1
 
@@ -24,8 +23,37 @@ HARD_FILLERS = frozenset({"uh", "um", "uhm", "er", "ah"})
 
 
 def clean(transcript: Transcript) -> Transcript:
-    """Pure function: returns a cleaned copy of the transcript.
+    """Pure function: returns a cleaned copy of the transcript."""
+    cleaned_segments: list[Segment] = []
+    for segment in transcript.segments:
+        cleaned = _clean_segment(segment)
+        if cleaned is not None:
+            cleaned_segments.append(cleaned)
+    return Transcript(
+        language=transcript.language,
+        duration_s=transcript.duration_s,
+        backend=transcript.backend,
+        model_id=transcript.model_id,
+        chunked=transcript.chunked,
+        segments=cleaned_segments,
+        speakers=transcript.speakers,
+    )
 
-    No-op skeleton — concrete behavior added in subsequent tasks.
-    """
-    return transcript
+
+def _clean_segment(segment: Segment) -> Segment | None:
+    kept: list[Word] = [w for w in segment.words if not _is_filler(w.text)]
+    if not kept:
+        return None
+    rebuilt_text = " ".join(w.text for w in kept)
+    return Segment(
+        start=segment.start,
+        end=segment.end,
+        text=rebuilt_text,
+        speaker=segment.speaker,
+        words=kept,
+    )
+
+
+def _is_filler(token: str) -> bool:
+    normalized = token.lower().strip(string.punctuation + string.whitespace)
+    return normalized in HARD_FILLERS
