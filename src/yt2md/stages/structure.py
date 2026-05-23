@@ -6,13 +6,26 @@ and G.3 adds the Gemini SDK call.
 
 from __future__ import annotations
 
+import json
 from importlib import resources
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from google import genai
+from google.genai import types as genai_types
+from pydantic import ValidationError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from yt2md.errors import InvalidStructuredOutputError
+from yt2md.models import StructuredDoc
 
 if TYPE_CHECKING:
-    from yt2md.models import StructuredDoc, Transcript, VideoMetadata
+    from yt2md.config import Config
+    from yt2md.models import Transcript, VideoMetadata
 
 PROMPT_VERSION = 1
 DESCRIPTION_MAX_CHARS = 1000
@@ -113,3 +126,90 @@ def _check_timestamps(stamps: list[float], duration_s: float, field_name: str) -
         if ts < 0.0 or ts > duration_s:
             msg = f"{field_name}: timestamp {ts} out of range [0, {duration_s}]"
             raise InvalidStructuredOutputError(msg)
+
+
+GEMINI_TEMPERATURE = 0.2
+MAX_OUTPUT_TOKENS = 20000
+SEED_MODULUS = 2**31
+MAX_STRUCTURE_ATTEMPTS = 2
+
+
+def structure(
+    transcript: Transcript,
+    metadata: VideoMetadata,
+    *,
+    cfg: Config,
+) -> StructuredDoc:
+    """Call Gemini for analytical extraction. Retry once on validation failure.
+
+    Raises InvalidStructuredOutputError if the second attempt also fails.
+    """
+    prompt = build_structure_prompt(transcript, metadata)
+    last_error: Exception | None = None
+
+    for attempt in range(1, MAX_STRUCTURE_ATTEMPTS + 1):
+        try:
+            response = _call_gemini(prompt, cfg=cfg)
+            raw = json.loads(response.text)
+            doc = StructuredDoc.model_validate(raw)
+            validate_structured_doc(doc, transcript=transcript, metadata=metadata)
+        except (ValidationError, InvalidStructuredOutputError, json.JSONDecodeError) as e:
+            last_error = e
+            if attempt == MAX_STRUCTURE_ATTEMPTS:
+                msg = f"Gemini output failed validation after retry: {e}"
+                raise InvalidStructuredOutputError(msg) from e
+            # Append validation feedback to the prompt and try again.
+            prompt = (
+                f"{prompt}\n\n# Previous attempt failed validation\n\n{e!s}\n\n"
+                "Please retry, fixing the issue above."
+            )
+            continue
+        else:
+            return doc
+
+    msg = f"Unreachable: last_error={last_error}"
+    raise InvalidStructuredOutputError(msg)
+
+
+def _call_gemini(prompt: str, *, cfg: Config) -> Any:  # noqa: ANN401
+    """Single Gemini API call with tenacity retries on transient SDK errors."""
+    return _call_gemini_inner(prompt, cfg)
+
+
+@retry(
+    retry=retry_if_exception_type((TimeoutError, ConnectionError)),
+    wait=wait_exponential(multiplier=2, min=2, max=30),
+    stop=stop_after_attempt(4),
+    reraise=True,
+)
+def _call_gemini_inner(prompt: str, cfg: Config) -> Any:  # noqa: ANN401
+    client = genai.Client(api_key=cfg.google_api_key.get_secret_value())
+    return client.models.generate_content(
+        model=cfg.structuring_model,
+        contents=prompt,
+        config=genai_types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=StructuredDoc.model_json_schema(),
+            temperature=GEMINI_TEMPERATURE,
+            seed=hash(prompt) % SEED_MODULUS,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            safety_settings=[
+                genai_types.SafetySetting(
+                    category="HARM_CATEGORY_HARASSMENT",
+                    threshold="BLOCK_NONE",
+                ),
+                genai_types.SafetySetting(
+                    category="HARM_CATEGORY_HATE_SPEECH",
+                    threshold="BLOCK_NONE",
+                ),
+                genai_types.SafetySetting(
+                    category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    threshold="BLOCK_NONE",
+                ),
+                genai_types.SafetySetting(
+                    category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold="BLOCK_NONE",
+                ),
+            ],
+        ),
+    )
