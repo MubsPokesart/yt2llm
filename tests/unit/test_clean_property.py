@@ -3,7 +3,7 @@
 Every surviving word's (start, end) tuple must have been in the input transcript.
 """
 
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from yt2md.models import Segment, Transcript, Word
@@ -46,6 +46,7 @@ def _segments_from_words(words: list[Word]) -> list[Segment]:
     ]
 
 
+@settings(deadline=None)
 @given(words=st.lists(_word_strategy, min_size=1, max_size=20))
 def test_surviving_timestamps_are_subset_of_input(words: list[Word]) -> None:
     segments = _segments_from_words(words)

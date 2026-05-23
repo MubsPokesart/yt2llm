@@ -41,6 +41,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/yt2md"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/yt2md/templates/document.md.j2" = "yt2md/templates/document.md.j2"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

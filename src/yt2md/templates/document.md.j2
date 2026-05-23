@@ -1,0 +1,21 @@
+---
+title: {{ frontmatter.title | yaml_str }}
+channel: {{ frontmatter.channel | yaml_str }}
+url: {{ frontmatter.url }}
+video_id: {{ frontmatter.video_id }}
+published: {{ frontmatter.published }}
+duration_seconds: {{ frontmatter.duration_seconds }}
+captured_at: {{ frontmatter.captured_at }}
+schema_version: {{ frontmatter.schema_version }}
+genre: {{ frontmatter.genre }}
+speakers: {{ frontmatter.speakers | yaml_list }}
+topics: {{ frontmatter.topics | yaml_list }}
+people_mentioned: {{ frontmatter.people_mentioned | yaml_list }}
+works_mentioned: {{ frontmatter.works_mentioned | yaml_list }}
+---
+
+# {{ frontmatter.title }}
+
+## TL;DR
+
+{{ tldr }}
