@@ -9,8 +9,10 @@ from __future__ import annotations
 from importlib import resources
 from typing import TYPE_CHECKING
 
+from yt2md.errors import InvalidStructuredOutputError
+
 if TYPE_CHECKING:
-    from yt2md.models import Transcript, VideoMetadata
+    from yt2md.models import StructuredDoc, Transcript, VideoMetadata
 
 PROMPT_VERSION = 1
 DESCRIPTION_MAX_CHARS = 1000
@@ -67,3 +69,47 @@ def _mmss(seconds_value: float) -> str:
     if h:
         return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
+
+
+MIN_TAKEAWAYS = 3
+
+
+def validate_structured_doc(
+    doc: StructuredDoc,
+    *,
+    transcript: Transcript,
+    metadata: VideoMetadata,
+) -> None:
+    """Semantic validation beyond Pydantic's shape checks. Raises on failure."""
+    if len(doc.takeaways) < MIN_TAKEAWAYS:
+        msg = f"takeaways: need at least {MIN_TAKEAWAYS}, got {len(doc.takeaways)}"
+        raise InvalidStructuredOutputError(msg)
+
+    if not doc.tldr.strip():
+        msg = "tldr is empty"
+        raise InvalidStructuredOutputError(msg)
+
+    if doc.frontmatter.title != metadata.title:
+        msg = f"frontmatter.title {doc.frontmatter.title!r} != metadata.title {metadata.title!r}"
+        raise InvalidStructuredOutputError(msg)
+
+    if doc.frontmatter.video_id != metadata.video_id:
+        msg = (
+            f"frontmatter.video_id {doc.frontmatter.video_id!r} != "
+            f"metadata.video_id {metadata.video_id!r}"
+        )
+        raise InvalidStructuredOutputError(msg)
+
+    duration = transcript.duration_s
+    _check_timestamps([t.timestamp_s for t in doc.takeaways], duration, "takeaways")
+    _check_timestamps([c.timestamp_s for c in doc.concepts], duration, "concepts")
+    _check_timestamps([r.timestamp_s for r in doc.references], duration, "references")
+    _check_timestamps([q.timestamp_s for q in doc.quotes], duration, "quotes")
+    _check_timestamps([s.timestamp_s for s in doc.sections], duration, "sections")
+
+
+def _check_timestamps(stamps: list[float], duration_s: float, field_name: str) -> None:
+    for ts in stamps:
+        if ts < 0.0 or ts > duration_s:
+            msg = f"{field_name}: timestamp {ts} out of range [0, {duration_s}]"
+            raise InvalidStructuredOutputError(msg)
