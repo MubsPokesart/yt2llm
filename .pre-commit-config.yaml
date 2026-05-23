@@ -17,6 +17,7 @@ repos:
           - openai>=1.30
           - tenacity>=8.3
           - google-genai>=0.3
+          - structlog>=24.1
         pass_filenames: false
   - repo: local
     hooks:
