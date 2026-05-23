@@ -25,3 +25,12 @@ def short_solo_transcript() -> Transcript:
         (FIXTURES_DIR / "transcripts" / "short_solo.json").read_text(encoding="utf-8")
     )
     return Transcript.model_validate(data)
+
+
+@pytest.fixture
+def multi_speaker_transcript() -> Transcript:
+    """2-speaker transcript with 96/4% duration split (above 95% collapse threshold)."""
+    data = json.loads(
+        (FIXTURES_DIR / "transcripts" / "multi_speaker.json").read_text(encoding="utf-8")
+    )
+    return Transcript.model_validate(data)

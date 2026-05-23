@@ -1,0 +1,33 @@
+{
+  "language": "en",
+  "duration_s": 100.0,
+  "backend": "openai_transcribe",
+  "model_id": "gpt-4o-transcribe",
+  "chunked": false,
+  "speakers": ["SPEAKER_00", "SPEAKER_01"],
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 96.0,
+      "text": "Long monologue by speaker zero spanning ninety six seconds total.",
+      "speaker": "SPEAKER_00",
+      "words": [
+        {"text": "Long",      "start": 0.0,  "end": 12.0, "speaker": "SPEAKER_00"},
+        {"text": "monologue", "start": 12.0, "end": 24.0, "speaker": "SPEAKER_00"},
+        {"text": "by",        "start": 24.0, "end": 36.0, "speaker": "SPEAKER_00"},
+        {"text": "speaker",   "start": 36.0, "end": 48.0, "speaker": "SPEAKER_00"},
+        {"text": "zero.",     "start": 48.0, "end": 96.0, "speaker": "SPEAKER_00"}
+      ]
+    },
+    {
+      "start": 96.0,
+      "end": 100.0,
+      "text": "Brief reply.",
+      "speaker": "SPEAKER_01",
+      "words": [
+        {"text": "Brief",  "start": 96.0, "end": 98.0,  "speaker": "SPEAKER_01"},
+        {"text": "reply.", "start": 98.0, "end": 100.0, "speaker": "SPEAKER_01"}
+      ]
+    }
+  ]
+}

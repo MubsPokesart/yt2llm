@@ -11,3 +11,9 @@ def test_short_solo_transcript_loads(short_solo_transcript: Transcript) -> None:
     assert len(short_solo_transcript.segments) == 3
     # Segment 2 starts with the filler "Uh,"
     assert short_solo_transcript.segments[1].words[0].text == "Uh,"
+
+
+def test_multi_speaker_transcript_loads(multi_speaker_transcript: Transcript) -> None:
+    assert multi_speaker_transcript.duration_s == pytest.approx(100.0)
+    assert multi_speaker_transcript.speakers == ["SPEAKER_00", "SPEAKER_01"]
+    assert len(multi_speaker_transcript.segments) == 2
