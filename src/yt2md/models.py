@@ -82,3 +82,46 @@ class VideoMetadata(BaseModel):
     chapters: list[Chapter]
     tags: list[str]
     language: str | None
+
+
+ReferenceKind = Literal["book", "paper", "person", "tool", "video", "other"]
+
+
+class Reference(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: ReferenceKind
+    name: str
+    context: str
+    timestamp_s: float = Field(ge=0.0)
+
+
+class Takeaway(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    text: str
+    timestamp_s: float = Field(ge=0.0)
+
+
+class Concept(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    definition: str
+    timestamp_s: float = Field(ge=0.0)
+
+
+class Quote(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    text: str
+    speaker: str
+    timestamp_s: float = Field(ge=0.0)
+
+
+class DetailedSection(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    heading: str
+    body: str
+    timestamp_s: float = Field(ge=0.0)
