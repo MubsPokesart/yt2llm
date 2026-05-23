@@ -72,7 +72,19 @@ max-locals = 15
 max-nested-blocks = 4
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "PLR2004", "ANN", "PLR0915"]
+"tests/**" = [
+    "S101",    # asserts allowed in tests
+    "PLR2004", # magic values allowed in tests
+    "ANN",     # type annotations not required in tests
+    "PLR0915", # many statements OK in tests
+    "PLR6301", # tests in classes — methods don't need to be static
+    "EM101",   # string-literal exception msgs in tests
+    "EM102",   # f-string exception msgs in tests
+    "TRY003",  # long exception messages in tests
+    "TRY301",  # raise inside try in tests (for catch-and-re-raise patterns)
+    "PT012",   # pytest.raises blocks with multiple statements in tests
+    "INP001",  # tests dir is not a namespace package
+]
 "src/yt2md/prompts/**" = ["E501"]
 "src/yt2md/templates/**" = ["E501"]
 "scripts/**" = ["INP001", "S404"]
