@@ -84,6 +84,7 @@ max-nested-blocks = 4
     "TRY301",  # raise inside try in tests (for catch-and-re-raise patterns)
     "PT012",   # pytest.raises blocks with multiple statements in tests
     "INP001",  # tests dir is not a namespace package
+    "S108",    # /tmp paths used as test inputs only
 ]
 "src/yt2md/prompts/**" = ["E501"]
 "src/yt2md/templates/**" = ["E501"]
