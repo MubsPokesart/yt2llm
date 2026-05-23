@@ -22,7 +22,7 @@ import tiktoken
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from .models import VideoMetadata
+    from yt2md.models import VideoMetadata
 
 VOCAB_HINT_VERSION = 1
 
