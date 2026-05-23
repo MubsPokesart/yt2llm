@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Annotated
 
@@ -18,6 +19,7 @@ from yt2md.errors import (
 )
 from yt2md.logging_config import configure_logging
 from yt2md.pipeline import run
+from yt2md.stages.download import _extract_video_id
 
 app = typer.Typer(
     name="yt2md",
@@ -25,6 +27,30 @@ app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
 )
+
+
+def _derive_expected_output(url: str, cfg: Config) -> tuple[Path | None, str]:
+    """Compute the expected output filename without running the pipeline.
+
+    Returns (path-if-determinable, video_id). For collision handling, the actual
+    filename may differ; we only use this for the short-circuit check.
+    """
+    video_id = _extract_video_id(url)
+    for candidate in cfg.output_dir.glob("*.md"):
+        try:
+            head = candidate.read_text(encoding="utf-8")[:1000]
+        except OSError:
+            continue
+        if f"video_id: {video_id}" in head:
+            return candidate, video_id
+    return None, video_id
+
+
+def _clear_cache_for(video_id: str, cfg: Config) -> None:
+    cache_video = cfg.cache_dir / video_id
+    if cache_video.exists():
+        typer.echo(f"Removing cache for {video_id}", err=True)
+        shutil.rmtree(cache_video)
 
 
 def _version_callback(value: bool) -> None:
@@ -104,6 +130,17 @@ def main(
     except Exception as e:  # Config(**overrides) may raise any pydantic/validation error
         typer.echo(f"Configuration error: {e}", err=True)
         raise typer.Exit(3) from e
+
+    # Idempotency check
+    if not cfg.force:
+        existing, _ = _derive_expected_output(url, cfg)
+        if existing is not None:
+            typer.echo(f"Already processed: {existing}")
+            raise typer.Exit(0)
+
+    if cfg.force:
+        _, video_id = _derive_expected_output(url, cfg)
+        _clear_cache_for(video_id, cfg)
 
     try:
         path = run(url, cfg=cfg)
