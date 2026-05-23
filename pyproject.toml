@@ -76,7 +76,9 @@ max-nested-blocks = 4
     "S101",    # asserts allowed in tests
     "PLR2004", # magic values allowed in tests
     "ANN",     # type annotations not required in tests
+    "PLR0913", # hypothesis property tests legitimately take many @given strategies
     "PLR0915", # many statements OK in tests
+    "PLR0917", # hypothesis property tests legitimately take many positional args
     "PLR6301", # tests in classes — methods don't need to be static
     "EM101",   # string-literal exception msgs in tests
     "EM102",   # f-string exception msgs in tests
