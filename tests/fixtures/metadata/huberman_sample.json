@@ -1,0 +1,17 @@
+{
+  "video_id": "abc123",
+  "url": "https://www.youtube.com/watch?v=abc123",
+  "title": "Dopamine, Motivation & Drive",
+  "channel": "Huberman Lab",
+  "channel_id": "UCxxxx",
+  "published_date": "2024-03-15",
+  "duration_s": 5025.0,
+  "description": "In this Huberman Lab episode, Andrew Huberman discusses dopamine, motivation and drive. References The Molecule of More by Daniel Lieberman, and the work of Robert Sapolsky at Stanford.",
+  "chapters": [
+    {"title": "Introduction", "start_s": 0.0, "end_s": 60.0},
+    {"title": "What dopamine actually does", "start_s": 60.0, "end_s": 2700.0},
+    {"title": "Tools to raise baseline dopamine", "start_s": 2700.0, "end_s": 5025.0}
+  ],
+  "tags": ["neuroscience", "dopamine", "motivation"],
+  "language": "en"
+}

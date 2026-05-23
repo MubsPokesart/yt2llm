@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from yt2md.models import Transcript
+from yt2md.models import Transcript, VideoMetadata
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -34,3 +34,12 @@ def multi_speaker_transcript() -> Transcript:
         (FIXTURES_DIR / "transcripts" / "multi_speaker.json").read_text(encoding="utf-8")
     )
     return Transcript.model_validate(data)
+
+
+@pytest.fixture
+def huberman_metadata() -> VideoMetadata:
+    """Sample VideoMetadata mimicking a Huberman Lab episode."""
+    data = json.loads(
+        (FIXTURES_DIR / "metadata" / "huberman_sample.json").read_text(encoding="utf-8")
+    )
+    return VideoMetadata.model_validate(data)

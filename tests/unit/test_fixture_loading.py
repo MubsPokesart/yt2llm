@@ -2,7 +2,7 @@
 
 import pytest
 
-from yt2md.models import Transcript
+from yt2md.models import Transcript, VideoMetadata
 
 
 def test_short_solo_transcript_loads(short_solo_transcript: Transcript) -> None:
@@ -17,3 +17,9 @@ def test_multi_speaker_transcript_loads(multi_speaker_transcript: Transcript) ->
     assert multi_speaker_transcript.duration_s == pytest.approx(100.0)
     assert multi_speaker_transcript.speakers == ["SPEAKER_00", "SPEAKER_01"]
     assert len(multi_speaker_transcript.segments) == 2
+
+
+def test_huberman_metadata_loads(huberman_metadata: VideoMetadata) -> None:
+    assert huberman_metadata.title == "Dopamine, Motivation & Drive"
+    assert huberman_metadata.channel == "Huberman Lab"
+    assert len(huberman_metadata.chapters) == 3
