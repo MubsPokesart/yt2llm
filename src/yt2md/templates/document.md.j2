@@ -52,3 +52,22 @@ works_mentioned: {{ frontmatter.works_mentioned | yaml_list }}
 
 {% endfor %}
 {% endif %}
+
+{% if sections %}
+## Detailed Notes
+
+{% for s in sections %}
+### {{ s.heading }} [[{{ s.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, s.timestamp_s) }})
+
+{{ s.body }}
+
+{% endfor %}
+{% endif %}
+
+{% if open_questions %}
+## Open Questions
+
+{% for q in open_questions -%}
+- {{ q }}
+{% endfor %}
+{% endif %}
