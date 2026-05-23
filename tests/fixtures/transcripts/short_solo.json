@@ -1,0 +1,56 @@
+{
+  "language": "en",
+  "duration_s": 30.0,
+  "backend": "openai_transcribe",
+  "model_id": "gpt-4o-transcribe",
+  "chunked": false,
+  "speakers": ["SPEAKER_00"],
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 8.0,
+      "text": "Welcome to the show today we discuss dopamine.",
+      "speaker": "SPEAKER_00",
+      "words": [
+        {"text": "Welcome",  "start": 0.0,  "end": 0.6,  "speaker": "SPEAKER_00"},
+        {"text": "to",       "start": 0.7,  "end": 0.8,  "speaker": "SPEAKER_00"},
+        {"text": "the",      "start": 0.9,  "end": 1.0,  "speaker": "SPEAKER_00"},
+        {"text": "show",     "start": 1.1,  "end": 1.5,  "speaker": "SPEAKER_00"},
+        {"text": "today",    "start": 1.6,  "end": 2.0,  "speaker": "SPEAKER_00"},
+        {"text": "we",       "start": 2.1,  "end": 2.3,  "speaker": "SPEAKER_00"},
+        {"text": "discuss",  "start": 2.4,  "end": 3.0,  "speaker": "SPEAKER_00"},
+        {"text": "dopamine.","start": 3.1,  "end": 8.0,  "speaker": "SPEAKER_00"}
+      ]
+    },
+    {
+      "start": 8.5,
+      "end": 18.0,
+      "text": "Uh, dopamine signals anticipation, not reward.",
+      "speaker": "SPEAKER_00",
+      "words": [
+        {"text": "Uh,",          "start": 8.5,  "end": 8.7,  "speaker": "SPEAKER_00"},
+        {"text": "dopamine",     "start": 9.0,  "end": 9.5,  "speaker": "SPEAKER_00"},
+        {"text": "signals",      "start": 9.6,  "end": 10.2, "speaker": "SPEAKER_00"},
+        {"text": "anticipation,","start": 10.3, "end": 11.5, "speaker": "SPEAKER_00"},
+        {"text": "not",          "start": 11.6, "end": 11.8, "speaker": "SPEAKER_00"},
+        {"text": "reward.",      "start": 11.9, "end": 18.0, "speaker": "SPEAKER_00"}
+      ]
+    },
+    {
+      "start": 18.5,
+      "end": 30.0,
+      "text": "It peaks before the reward arrives, not during.",
+      "speaker": "SPEAKER_00",
+      "words": [
+        {"text": "It",      "start": 18.5, "end": 18.7, "speaker": "SPEAKER_00"},
+        {"text": "peaks",   "start": 18.8, "end": 19.2, "speaker": "SPEAKER_00"},
+        {"text": "before",  "start": 19.3, "end": 19.8, "speaker": "SPEAKER_00"},
+        {"text": "the",     "start": 19.9, "end": 20.0, "speaker": "SPEAKER_00"},
+        {"text": "reward",  "start": 20.1, "end": 20.6, "speaker": "SPEAKER_00"},
+        {"text": "arrives,","start": 20.7, "end": 21.5, "speaker": "SPEAKER_00"},
+        {"text": "not",     "start": 21.6, "end": 21.8, "speaker": "SPEAKER_00"},
+        {"text": "during.", "start": 21.9, "end": 30.0, "speaker": "SPEAKER_00"}
+      ]
+    }
+  ]
+}

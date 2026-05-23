@@ -1,8 +1,13 @@
 """Shared pytest configuration and fixtures."""
 
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
 import pytest
+
+from yt2md.models import Transcript
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -11,3 +16,12 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def fixtures_dir() -> Path:
     """Path to the tests/fixtures directory."""
     return FIXTURES_DIR
+
+
+@pytest.fixture
+def short_solo_transcript() -> Transcript:
+    """3-segment solo transcript with one filler ('Uh,'). Loaded from JSON fixture."""
+    data = json.loads(
+        (FIXTURES_DIR / "transcripts" / "short_solo.json").read_text(encoding="utf-8")
+    )
+    return Transcript.model_validate(data)
