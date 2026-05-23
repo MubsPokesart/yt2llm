@@ -92,6 +92,7 @@ max-nested-blocks = 4
     "INP001",  # tests dir is not a namespace package
     "S108",    # /tmp paths used as test inputs only
     "S404",    # subprocess import allowed in tests (mocked)
+    "ARG002",  # pytest fixtures injected for side-effects only look "unused"
 ]
 "src/yt2md/prompts/**" = ["E501"]
 "src/yt2md/templates/**" = ["E501"]
