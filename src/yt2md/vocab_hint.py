@@ -52,6 +52,17 @@ class VocabularyHints:
 # match and the inner "Andrew Huberman".
 _TITLE_CASE_PATTERN = re.compile(r"(?=\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b)")
 
+# Quoted phrases (single, double, or smart quotes) — likely titles of works.
+_QUOTED_PATTERN = re.compile(r'["“]([^"”]{2,80})["”]')
+
+# All-caps acronyms, 2-5 chars. Single letters and longer strings excluded
+# (longer all-caps is usually shouting or noise; single letters are stop-words).
+_ACRONYM_PATTERN = re.compile(r"\b([A-Z]{2,5})\b")
+
+# CamelCase: starts with capital, has at least one lowercase, then at least one capital
+# OR alphanumeric with internal digit/hyphen ("GPT-4", "Claude-3").
+_CAMELCASE_PATTERN = re.compile(r"\b([A-Z][a-z]+[A-Z][A-Za-z0-9]*|[A-Z][A-Za-z]+-?\d+)\b")
+
 
 def extract_hints(meta: VideoMetadata) -> VocabularyHints:
     """Extract a categorized VocabularyHints from video metadata.
@@ -61,13 +72,18 @@ def extract_hints(meta: VideoMetadata) -> VocabularyHints:
     """
     desc_excerpt = _strip_urls(meta.description)[:500]
     sources = [meta.title, *(c.title for c in meta.chapters), desc_excerpt]
+    combined = "\n".join(sources)
 
-    people = _dedup_ordered(match for src in sources for match in _TITLE_CASE_PATTERN.findall(src))
+    works = _dedup_ordered(_QUOTED_PATTERN.findall(combined))
+    acronyms = _dedup_ordered(_ACRONYM_PATTERN.findall(combined))
+    camel = _dedup_ordered(_CAMELCASE_PATTERN.findall(combined))
+    concepts = _dedup_ordered([*acronyms, *camel])
+    people = _dedup_ordered(_TITLE_CASE_PATTERN.findall(combined))
 
     return VocabularyHints(
         people=people,
-        works=[],
-        concepts=[],
+        works=works,
+        concepts=concepts,
         organizations=[],
         channel=meta.channel,
         title=meta.title,

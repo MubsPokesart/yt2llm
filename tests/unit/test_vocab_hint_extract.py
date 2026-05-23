@@ -49,3 +49,55 @@ class TestExtractTitleAndChannel:
         m = _meta(channel="Huberman Lab")
         h = extract_hints(m)
         assert h.channel == "Huberman Lab"
+
+
+class TestExtractWorks:
+    def test_double_quoted_extracted_as_work(self) -> None:
+        m = _meta(description='Discussing "The Molecule of More" by Daniel Lieberman.')
+        h = extract_hints(m)
+        assert "The Molecule of More" in h.works
+
+    def test_smart_quotes_extracted(self) -> None:
+        m = _meta(description="Discussing “The Molecule of More” at length.")
+        h = extract_hints(m)
+        assert "The Molecule of More" in h.works
+
+
+class TestExtractAcronyms:
+    def test_short_acronyms_extracted(self) -> None:
+        m = _meta(description="The fMRI scans showed ADHD signatures and DNA damage.")
+        h = extract_hints(m)
+        # 2-5 char all-caps tokens
+        assert "ADHD" in h.concepts
+        assert "DNA" in h.concepts
+
+    def test_single_letter_not_extracted(self) -> None:
+        m = _meta(description="A study of A and B groups.")
+        h = extract_hints(m)
+        assert "A" not in h.concepts
+        assert "B" not in h.concepts
+
+    def test_six_letter_not_extracted(self) -> None:
+        m = _meta(description="SHOULDNT extract this.")
+        h = extract_hints(m)
+        assert "SHOULDNT" not in h.concepts
+
+
+class TestExtractCamelCase:
+    def test_camel_case_extracted_as_concept(self) -> None:
+        m = _meta(description="Using PyTorch and TensorFlow for the experiment.")
+        h = extract_hints(m)
+        assert "PyTorch" in h.concepts
+        assert "TensorFlow" in h.concepts
+
+    def test_alphanumeric_with_internal_digit(self) -> None:
+        m = _meta(description="GPT-4 and Claude-3 are competing models.")
+        h = extract_hints(m)
+        assert "GPT-4" in h.concepts
+
+
+class TestDedup:
+    def test_repeated_term_deduped(self) -> None:
+        m = _meta(description="Andrew Huberman explained. Andrew Huberman emphasized.")
+        h = extract_hints(m)
+        assert h.people.count("Andrew Huberman") == 1
