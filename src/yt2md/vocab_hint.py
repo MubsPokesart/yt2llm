@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+import tiktoken
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -88,6 +90,42 @@ def extract_hints(meta: VideoMetadata) -> VocabularyHints:
         channel=meta.channel,
         title=meta.title,
     )
+
+
+DEFAULT_TOKEN_BUDGET = 220
+
+
+def format_for_openai(hints: VocabularyHints, *, max_tokens: int = DEFAULT_TOKEN_BUDGET) -> str:
+    """Format hints as a comma-separated glossary for gpt-4o-transcribe's `prompt` param.
+
+    Per OpenAI guidance: short keyword lists work better than instructions for the
+    transcription `prompt` parameter. Truncates to `max_tokens` via tiktoken.
+    """
+    parts: list[str] = []
+    if hints.title:
+        parts.append(hints.title)
+    if hints.channel:
+        parts.append(hints.channel)
+    parts.extend(hints.people)
+    parts.extend(hints.works)
+    parts.extend(hints.organizations)
+    parts.extend(hints.concepts)
+    body = ", ".join(p for p in parts if p)
+    full = f"Glossary for transcription: {body}"
+    return _truncate_to_tokens(full, max_tokens)
+
+
+def _truncate_to_tokens(text: str, max_tokens: int) -> str:
+    """Truncate `text` so the token count does not exceed `max_tokens`.
+
+    Uses tiktoken's cl100k_base encoding (OpenAI's standard).
+    """
+    enc = tiktoken.get_encoding("cl100k_base")
+    tokens = enc.encode(text)
+    if len(tokens) <= max_tokens:
+        return text
+    decoded: str = enc.decode(tokens[:max_tokens])
+    return decoded
 
 
 def _strip_urls(text: str) -> str:
