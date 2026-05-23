@@ -71,3 +71,10 @@ works_mentioned: {{ frontmatter.works_mentioned | yaml_list }}
 - {{ q }}
 {% endfor %}
 {% endif %}
+
+## Full Cleaned Transcript
+
+{% for p in transcript_paragraphs %}
+**[{{ p.start_s | mmss }}]**{% if p.speaker %} {{ p.speaker }}:{% endif %} {{ p.text }}
+
+{% endfor %}

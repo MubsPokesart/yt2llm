@@ -7,6 +7,7 @@ The Jinja2 template owns the document shape; this module owns preprocessing
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from importlib import resources
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,15 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 if TYPE_CHECKING:
     from yt2md.models import StructuredDoc, Transcript
+
+PARAGRAPH_DURATION_S = 60.0
+
+
+@dataclass(frozen=True)
+class TranscriptParagraph:
+    start_s: float
+    speaker: str | None
+    text: str
 
 
 def _build_env() -> Environment:
@@ -74,6 +84,53 @@ def _emoji_for(kind: str) -> str:
     return _REFERENCE_EMOJI.get(kind, "🔗")
 
 
+def _group_into_paragraphs(transcript: Transcript) -> list[TranscriptParagraph]:
+    """Group segments into ~60-second paragraphs.
+
+    Rules:
+      - A new paragraph starts when speaker changes from the prior segment.
+      - A new paragraph starts when current segment.start >= paragraph_start + 60s.
+      - Within a paragraph, segment texts are space-joined.
+    """
+    paragraphs: list[TranscriptParagraph] = []
+    current_start: float | None = None
+    current_speaker: str | None = None
+    current_texts: list[str] = []
+
+    def _flush() -> None:
+        if current_start is not None and current_texts:
+            paragraphs.append(
+                TranscriptParagraph(
+                    start_s=current_start,
+                    speaker=current_speaker,
+                    text=" ".join(current_texts),
+                )
+            )
+
+    for seg in transcript.segments:
+        start_new = (
+            current_start is None
+            or seg.speaker != current_speaker
+            or seg.start >= current_start + PARAGRAPH_DURATION_S
+        )
+        if start_new:
+            _flush()
+            current_start = seg.start
+            current_speaker = seg.speaker
+            current_texts = [seg.text]
+        else:
+            current_texts.append(seg.text)
+
+    _flush()
+    return paragraphs
+
+
+def _resolve_speaker(label: str | None, name_map: dict[str, str]) -> str:
+    if label is None:
+        return ""
+    return name_map.get(label, label)
+
+
 def render(doc: StructuredDoc, transcript: Transcript) -> str:
     """Build the final markdown document.
 
@@ -81,6 +138,15 @@ def render(doc: StructuredDoc, transcript: Transcript) -> str:
     (added in a later task). `doc` provides all analytical sections + frontmatter.
     """
     env = _build_env()
+    paragraphs = _group_into_paragraphs(transcript)
+    resolved_paragraphs = [
+        {
+            "start_s": p.start_s,
+            "speaker": _resolve_speaker(p.speaker, doc.speaker_name_map),
+            "text": p.text,
+        }
+        for p in paragraphs
+    ]
     template = env.get_template("document.md.j2")
     rendered: str = template.render(
         frontmatter=doc.frontmatter,
@@ -91,7 +157,6 @@ def render(doc: StructuredDoc, transcript: Transcript) -> str:
         quotes=doc.quotes,
         sections=doc.sections,
         open_questions=doc.open_questions,
-        transcript=transcript,
-        speaker_name_map=doc.speaker_name_map,
+        transcript_paragraphs=resolved_paragraphs,
     )
     return rendered
