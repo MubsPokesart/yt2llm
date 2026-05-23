@@ -1,0 +1,20 @@
+{
+  "id": "abc123",
+  "title": "Dopamine, Motivation & Drive",
+  "channel": "Huberman Lab",
+  "channel_id": "UCxxxx",
+  "uploader": "Huberman Lab",
+  "uploader_id": "@hubermanlab",
+  "upload_date": "20240315",
+  "duration": 5025,
+  "description": "In this Huberman Lab episode, Andrew Huberman discusses dopamine.",
+  "chapters": [
+    {"title": "Introduction", "start_time": 0, "end_time": 60},
+    {"title": "What dopamine actually does", "start_time": 60, "end_time": 2700}
+  ],
+  "tags": ["neuroscience", "dopamine"],
+  "language": "en",
+  "webpage_url": "https://www.youtube.com/watch?v=abc123",
+  "is_live": false,
+  "live_status": "not_live"
+}
