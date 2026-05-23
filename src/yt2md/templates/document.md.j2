@@ -25,3 +25,30 @@ works_mentioned: {{ frontmatter.works_mentioned | yaml_list }}
 {% for t in takeaways -%}
 - {{ t.text }} [[{{ t.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, t.timestamp_s) }})
 {% endfor %}
+
+{% if concepts %}
+## Concepts & Definitions
+
+{% for c in concepts -%}
+**{{ c.name }}** — {{ c.definition }} [[{{ c.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, c.timestamp_s) }})
+
+{% endfor %}
+{% endif %}
+
+{% if references %}
+## References Mentioned
+
+{% for r in references -%}
+- {{ emoji_for(r.kind) }} **{{ r.name }}** — {{ r.context }} [[{{ r.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, r.timestamp_s) }})
+{% endfor %}
+{% endif %}
+
+{% if quotes %}
+## Notable Quotes
+
+{% for q in quotes -%}
+> {{ q.text }}
+> — {{ q.speaker }}, [[{{ q.timestamp_s | mmss }}]]({{ ytlink(frontmatter.url, q.timestamp_s) }})
+
+{% endfor %}
+{% endif %}

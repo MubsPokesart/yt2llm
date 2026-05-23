@@ -29,6 +29,7 @@ def _build_env() -> Environment:
     env.filters["yaml_list"] = _yaml_list
     env.filters["mmss"] = _mmss
     env.globals["ytlink"] = _ytlink
+    env.globals["emoji_for"] = _emoji_for
     return env
 
 
@@ -56,6 +57,21 @@ def _ytlink(base_url: str, seconds_value: float) -> str:
     """Build a YouTube deep-link with &t=Ns query suffix."""
     separator = "&" if "?" in base_url else "?"
     return f"{base_url}{separator}t={int(seconds_value)}s"
+
+
+_REFERENCE_EMOJI: dict[str, str] = {
+    "book": "📚",
+    "paper": "📄",
+    "person": "👤",
+    "tool": "🛠",
+    "video": "🎬",
+    "other": "🔗",
+}
+
+
+def _emoji_for(kind: str) -> str:
+    """Return the emoji prefix for a Reference.kind value. Falls back to 🔗."""
+    return _REFERENCE_EMOJI.get(kind, "🔗")
 
 
 def render(doc: StructuredDoc, transcript: Transcript) -> str:
