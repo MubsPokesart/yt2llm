@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from google.genai import _transformers  # noqa: PLC2701  -- SDK's private validator
 
 from yt2md.config import Config
 from yt2md.errors import InvalidStructuredOutputError
@@ -16,7 +17,10 @@ from yt2md.models import (
     Transcript,
     VideoMetadata,
 )
-from yt2md.stages.structure import structure
+from yt2md.stages.structure import (
+    _build_gemini_schema,  # noqa: PLC2701  -- testing private boundary helper
+    structure,
+)
 
 
 @pytest.fixture
@@ -105,6 +109,49 @@ class TestStructureHappy:
             doc = structure(_transcript(), _meta(), cfg=cfg)
         assert isinstance(doc, StructuredDoc)
         assert len(doc.takeaways) == 3
+
+
+class TestGeminiDeveloperApiSchemaCompat:
+    """The schema we hand to Gemini's Developer API must avoid keywords like
+    `additionalProperties` that only Vertex/Enterprise mode supports.
+
+    Regression: StructuredDoc.speaker_name_map (dict[str, str]) caused Pydantic
+    to emit `additionalProperties` in the JSON Schema. The Gemini SDK validates
+    this client-side and raises ValueError before any network call.
+    """
+
+    def test_response_schema_excludes_additional_properties_anywhere(self) -> None:
+        """Walk the schema; assert no `additionalProperties` at any nesting depth.
+
+        Catches: any future dict[K, V] field added to StructuredDoc or its nested
+        models whose `additionalProperties` slips past the boundary helper.
+        """
+        schema = _build_gemini_schema()
+        offenders: list[str] = []
+
+        def walk(node: object, path: str) -> None:
+            if isinstance(node, dict):
+                if "additionalProperties" in node or "additional_properties" in node:
+                    offenders.append(path or "$")
+                for k, v in node.items():
+                    walk(v, f"{path}.{k}")
+            elif isinstance(node, list):
+                for i, v in enumerate(node):
+                    walk(v, f"{path}[{i}]")
+
+        walk(schema, "")
+        assert not offenders, (
+            f"Gemini Developer API rejects `additionalProperties`; found at: {offenders}"
+        )
+
+    def test_response_schema_passes_sdk_developer_api_check(self) -> None:
+        """Run the Gemini SDK's own validator on our schema.
+
+        Forward-safe: if the SDK rejects more keywords in a future release,
+        this test breaks the moment we upgrade, telling us exactly what to strip.
+        """
+        stub_client = SimpleNamespace(vertexai=False)
+        _transformers.process_schema(_build_gemini_schema(), stub_client)
 
 
 class TestStructureRetryOnValidation:

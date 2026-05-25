@@ -26,6 +26,35 @@ class TestNormalizeOpenAIResponse:
         assert t.backend == "openai_transcribe"
         assert t.model_id == "gpt-4o-transcribe"
 
+    def test_distributes_top_level_words_into_segments_by_time_range(self) -> None:
+        """The real OpenAI API returns `words` at the top level (not nested in segments)
+        when timestamp_granularities=["word", "segment"] is set. The normalizer must
+        bucket each top-level word into the segment whose [start, end) range contains
+        word.start. Catches the original bug where 113 segments came back with 0 words
+        each and the cleaner then dropped every segment.
+        """
+        real_shape = {
+            "language": "en",
+            "duration": 10.0,
+            "text": "First sentence. Second sentence.",
+            "segments": [
+                {"id": 0, "start": 0.0, "end": 5.0, "text": "First sentence."},
+                {"id": 1, "start": 5.0, "end": 10.0, "text": "Second sentence."},
+            ],
+            "words": [
+                {"word": "First", "start": 0.1, "end": 0.5},
+                {"word": "sentence.", "start": 0.6, "end": 1.2},
+                {"word": "Second", "start": 5.1, "end": 5.5},
+                {"word": "sentence.", "start": 5.6, "end": 6.2},
+            ],
+        }
+        t = normalize_openai_response(real_shape, model_id="whisper-1")
+        assert len(t.segments) == 2
+        assert len(t.segments[0].words) == 2
+        assert [w.text for w in t.segments[0].words] == ["First", "sentence."]
+        assert len(t.segments[1].words) == 2
+        assert [w.text for w in t.segments[1].words] == ["Second", "sentence."]
+
     def test_duration_mapped(self, raw: dict[str, object]) -> None:
         t = normalize_openai_response(raw, model_id="gpt-4o-transcribe")
         assert t.duration_s == pytest.approx(8.0)

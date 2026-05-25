@@ -14,7 +14,7 @@ import string
 
 from yt2md.models import Segment, Transcript, Word
 
-CLEANER_VERSION = 1
+CLEANER_VERSION = 2
 
 # Derived from PodcastFillers (Zhu et al. 2022). Covers ~96% of annotated fillers
 # in podcast audio. Excludes "mm"/"mhm" (agreement sounds, non-filler) and
@@ -67,16 +67,29 @@ def clean(transcript: Transcript) -> Transcript:
 
 
 def _clean_segment(segment: Segment) -> Segment | None:
-    kept: list[Word] = [w for w in segment.words if not _is_filler(w.text)]
-    if not kept:
+    if segment.words:
+        kept: list[Word] = [w for w in segment.words if not _is_filler(w.text)]
+        if not kept:
+            return None
+        return Segment(
+            start=segment.start,
+            end=segment.end,
+            text=" ".join(w.text for w in kept),
+            speaker=segment.speaker,
+            words=kept,
+        )
+    # No word-level data: filter filler tokens from segment.text directly.
+    # Preserves the segment when a backend (or a transcript shape) gives us
+    # text without per-word timestamps.
+    kept_tokens = [t for t in segment.text.split() if not _is_filler(t)]
+    if not kept_tokens:
         return None
-    rebuilt_text = " ".join(w.text for w in kept)
     return Segment(
         start=segment.start,
         end=segment.end,
-        text=rebuilt_text,
+        text=" ".join(kept_tokens),
         speaker=segment.speaker,
-        words=kept,
+        words=[],
     )
 
 

@@ -40,12 +40,15 @@ class Config(BaseSettings):
 
     # Transcription
     transcription_backend: Literal["openai_transcribe", "local_whisper", "auto"] = "auto"
-    transcription_model: str = "gpt-4o-transcribe"
+    transcription_model: str = "whisper-1"
     local_whisper_model: str = "medium"
     use_transcription_hint: bool = True
 
     # Structuring
-    structuring_model: str = "gemini-3-flash"
+    # gemini-2.5-flash: workhorse model, well-priced, handles structured output.
+    # gemini-3-flash is preview-only on v1beta consumer keys (404). gemini-3.5-flash
+    # is materially pricier without commensurate quality gains for this workload.
+    structuring_model: str = "gemini-2.5-flash"
 
     # yt-dlp auth
     cookies_from_browser: str | None = None

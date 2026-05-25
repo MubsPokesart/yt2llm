@@ -173,14 +173,22 @@ def _join_oxford(items: list[str]) -> str:
 def _truncate_to_tokens(text: str, max_tokens: int) -> str:
     """Truncate `text` so the token count does not exceed `max_tokens`.
 
-    Uses tiktoken's cl100k_base encoding (OpenAI's standard).
+    Uses tiktoken's cl100k_base encoding (OpenAI's standard). Iteratively shrinks
+    until the re-encoded decoded string fits: tiktoken decode can produce U+FFFD
+    replacement chars when truncating mid-multibyte-codepoint, and those chars
+    themselves cost tokens, so a single slice can overshoot the budget by 1-2.
     """
     enc = tiktoken.get_encoding("cl100k_base")
     tokens = enc.encode(text)
     if len(tokens) <= max_tokens:
         return text
-    decoded: str = enc.decode(tokens[:max_tokens])
-    return decoded
+    target = max_tokens
+    while target > 0:
+        decoded: str = enc.decode(tokens[:target])
+        if len(enc.encode(decoded)) <= max_tokens:
+            return decoded
+        target -= 1
+    return ""
 
 
 def _strip_urls(text: str) -> str:

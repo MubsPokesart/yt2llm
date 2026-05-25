@@ -34,6 +34,37 @@ class TestEnvOverridesDefault:
             Config()  # type: ignore[call-arg]
 
 
+class TestDefaultsAreCompatibleWithProduct:
+    def test_default_transcription_model_supports_verbose_json(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The default OpenAI model must return segment+word timestamps.
+
+        yt2llm's Tier 3 markdown requires timestamped segments, which OpenAI only
+        delivers via response_format=verbose_json. Only whisper-1 currently supports
+        verbose_json; gpt-4o-transcribe(-mini) do not. A default that breaks every
+        first-run user is not acceptable.
+        """
+        monkeypatch.setenv("YT2MD_GOOGLE_API_KEY", "g")
+        cfg = Config()  # type: ignore[call-arg]
+        assert cfg.transcription_model == "whisper-1"
+
+    def test_default_structuring_model_is_gemini_2_5_flash(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pin the structuring model to gemini-2.5-flash.
+
+        Workhorse model on v1beta: stable, well-priced, handles structured output.
+        gemini-3-flash is preview-only and 404s on consumer Developer API keys;
+        gemini-3.5-flash is materially pricier without commensurate quality gains
+        for this workload. A silent swap to either should be a deliberate decision,
+        which this pin makes explicit.
+        """
+        monkeypatch.setenv("YT2MD_GOOGLE_API_KEY", "g")
+        cfg = Config()  # type: ignore[call-arg]
+        assert cfg.structuring_model == "gemini-2.5-flash"
+
+
 class TestKwargOverridesEnv:
     def test_kwarg_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("YT2MD_OUTPUT_DIR", "/from/env")

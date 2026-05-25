@@ -176,6 +176,32 @@ def _call_gemini(prompt: str, *, cfg: Config) -> Any:  # noqa: ANN401
     return _call_gemini_inner(prompt, cfg)
 
 
+def _strip_unsupported_schema_keys(node: Any) -> None:  # noqa: ANN401
+    """Recursively remove JSON Schema keys that Gemini's Developer API rejects.
+
+    The Gemini SDK validates `response_schema` client-side via
+    `_raise_for_unsupported_mldev_properties` and rejects `additionalProperties`
+    (only Vertex/Enterprise mode accepts it). Pydantic emits this key for any
+    `dict[K, V]` field — e.g., StructuredDoc.speaker_name_map. Strip in place.
+    Pydantic-validation of the response (structure.py:154) preserves type safety.
+    """
+    if isinstance(node, dict):
+        node.pop("additionalProperties", None)
+        node.pop("additional_properties", None)
+        for v in node.values():
+            _strip_unsupported_schema_keys(v)
+    elif isinstance(node, list):
+        for item in node:
+            _strip_unsupported_schema_keys(item)
+
+
+def _build_gemini_schema() -> dict[str, Any]:
+    """Build the StructuredDoc JSON schema for Gemini's Developer API."""
+    schema: dict[str, Any] = StructuredDoc.model_json_schema()
+    _strip_unsupported_schema_keys(schema)
+    return schema
+
+
 @retry(
     retry=retry_if_exception_type((TimeoutError, ConnectionError)),
     wait=wait_exponential(multiplier=2, min=2, max=30),
@@ -189,7 +215,7 @@ def _call_gemini_inner(prompt: str, cfg: Config) -> Any:  # noqa: ANN401
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=StructuredDoc.model_json_schema(),
+            response_schema=_build_gemini_schema(),
             temperature=GEMINI_TEMPERATURE,
             seed=hash(prompt) % SEED_MODULUS,
             max_output_tokens=MAX_OUTPUT_TOKENS,

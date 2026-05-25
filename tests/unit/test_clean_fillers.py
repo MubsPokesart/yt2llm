@@ -33,6 +33,56 @@ def _transcript(segments: list[Segment], speakers: list[str]) -> Transcript:
     )
 
 
+class TestTextOnlySegmentFallback:
+    """When a transcript backend returns segments with text but no words array
+    (e.g., faster-whisper without word_timestamps=True, or any future backend),
+    the cleaner must not drop the segment — that erases the entire transcript.
+    Filler removal falls back to filtering tokens from the text directly.
+    """
+
+    def test_text_only_segment_preserved(self) -> None:
+        text_only = Segment(
+            start=0.0,
+            end=2.0,
+            text="hello world",
+            speaker="S0",
+            words=[],
+        )
+        t = Transcript(
+            language="en",
+            duration_s=2.0,
+            backend="openai_transcribe",
+            model_id="m",
+            chunked=False,
+            segments=[text_only],
+            speakers=[],
+        )
+        result = clean(t)
+        assert len(result.segments) == 1
+        assert result.segments[0].text == "hello world"
+
+    def test_text_only_segment_drops_fillers_from_text(self) -> None:
+        text_only = Segment(
+            start=0.0,
+            end=2.0,
+            text="uh hello um world",
+            speaker="S0",
+            words=[],
+        )
+        t = Transcript(
+            language="en",
+            duration_s=2.0,
+            backend="openai_transcribe",
+            model_id="m",
+            chunked=False,
+            segments=[text_only],
+            speakers=[],
+        )
+        result = clean(t)
+        assert len(result.segments) == 1
+        assert result.segments[0].text == "hello world"
+
+
 class TestFillerRemoval:
     def test_uh_dropped(self) -> None:
         t = _transcript(

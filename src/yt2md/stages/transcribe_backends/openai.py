@@ -25,7 +25,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from yt2md.errors import TranscriptionError
+from yt2md.errors import ConfigError, TranscriptionError
 from yt2md.models import Segment, Transcript, VideoMetadata, Word
 from yt2md.vocab_hint import extract_hints, format_for_openai
 
@@ -34,15 +34,29 @@ if TYPE_CHECKING:
 
     from yt2md.config import Config
 
+# yt2llm's Tier 3 markdown requires segment+word timestamps. OpenAI only delivers
+# those via response_format=verbose_json, and only whisper-1 supports that format.
+# gpt-4o-transcribe(-mini) accept response_format=json|text only and would silently
+# strip timestamps, breaking timeline rendering and chunk stitching.
+VERBOSE_JSON_COMPATIBLE_MODELS: frozenset[str] = frozenset({"whisper-1"})
+
 
 def normalize_openai_response(raw: dict[str, Any], *, model_id: str) -> Transcript:
     """Convert OpenAI verbose_json transcribe response to our Transcript model.
 
+    When `timestamp_granularities=["word", "segment"]` is requested, the real API
+    returns `words` at the **top level** of the response — not nested in segments.
+    Distribute top-level words into segments by time range. Fall back to nested
+    segment.words for legacy / mocked-test response shapes.
+
     Strips leading whitespace from word.text (OpenAI emits leading spaces).
     Collects all distinct speakers from word/segment labels.
     """
+    top_level_words = [_normalize_word(w) for w in raw.get("words") or []]
     segments_raw = raw.get("segments") or []
-    segments: list[Segment] = [_normalize_segment(s) for s in segments_raw]
+    segments: list[Segment] = [
+        _normalize_segment(s, top_level_words=top_level_words) for s in segments_raw
+    ]
     speakers = _collect_speakers(segments)
     return Transcript(
         language=str(raw.get("language", "en")),
@@ -55,11 +69,14 @@ def normalize_openai_response(raw: dict[str, Any], *, model_id: str) -> Transcri
     )
 
 
-def _normalize_segment(raw_seg: dict[str, Any]) -> Segment:
-    words = [_normalize_word(w) for w in raw_seg.get("words") or []]
+def _normalize_segment(raw_seg: dict[str, Any], *, top_level_words: list[Word]) -> Segment:
+    nested = [_normalize_word(w) for w in raw_seg.get("words") or []]
+    seg_start = float(raw_seg["start"])
+    seg_end = float(raw_seg["end"])
+    words = nested or [w for w in top_level_words if seg_start <= w.start < seg_end]
     return Segment(
-        start=float(raw_seg["start"]),
-        end=float(raw_seg["end"]),
+        start=seg_start,
+        end=seg_end,
         text=str(raw_seg.get("text", "")).strip(),
         speaker=raw_seg.get("speaker"),
         words=words,
@@ -110,7 +127,9 @@ def _call_openai_transcribe(
     if prompt:
         kwargs["prompt"] = prompt
     with audio_path.open("rb") as f:
-        kwargs["file"] = f
+        # OpenAI's audio API rejects .opus filenames even though opus-in-ogg is
+        # the same payload it accepts as .ogg. Override the filename at upload.
+        kwargs["file"] = ("audio.ogg", f, "audio/ogg")
         return client.audio.transcriptions.create(**kwargs)
 
 
@@ -127,6 +146,16 @@ def transcribe_openai(
     if cfg.openai_api_key is None:
         msg = "OPENAI_API_KEY not set"
         raise TranscriptionError(msg)
+
+    if cfg.transcription_model not in VERBOSE_JSON_COMPATIBLE_MODELS:
+        supported = ", ".join(sorted(VERBOSE_JSON_COMPATIBLE_MODELS))
+        msg = (
+            f"transcription_model={cfg.transcription_model!r} does not support "
+            f"response_format=verbose_json (required for segment+word timestamps). "
+            f"Use one of: {supported}. To use the gpt-4o-transcribe family "
+            f"(which lacks timestamps), set transcription_backend=local instead."
+        )
+        raise ConfigError(msg)
 
     client = OpenAI(api_key=cfg.openai_api_key.get_secret_value())
     prompt = format_for_openai(extract_hints(metadata)) if cfg.use_transcription_hint else None
