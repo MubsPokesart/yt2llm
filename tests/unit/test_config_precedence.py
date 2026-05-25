@@ -65,6 +65,37 @@ class TestDefaultsAreCompatibleWithProduct:
         assert cfg.structuring_model == "gemini-2.5-flash"
 
 
+class TestApiKeyAliases:
+    """Bare OPENAI_API_KEY / GOOGLE_API_KEY env vars must be accepted alongside the
+    YT2MD_-prefixed forms. New users follow the OpenAI / Google docs and export the
+    bare names; requiring the project-specific prefix silently breaks first-run UX
+    and (worse) lets live tests skip while Config rejects the keys as unset.
+    """
+
+    def test_bare_openai_api_key_is_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("YT2MD_OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-bare")
+        monkeypatch.setenv("YT2MD_GOOGLE_API_KEY", "g")
+        cfg = Config()  # type: ignore[call-arg]
+        assert cfg.openai_api_key is not None
+        assert cfg.openai_api_key.get_secret_value() == "sk-test-bare"
+
+    def test_bare_google_api_key_is_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("YT2MD_GOOGLE_API_KEY", raising=False)
+        monkeypatch.setenv("GOOGLE_API_KEY", "g-test-bare")
+        cfg = Config()  # type: ignore[call-arg]
+        assert cfg.google_api_key.get_secret_value() == "g-test-bare"
+
+    def test_prefixed_wins_over_bare(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When both are set, YT2MD_-prefixed wins (project-specific overrides global)."""
+        monkeypatch.setenv("OPENAI_API_KEY", "bare")
+        monkeypatch.setenv("YT2MD_OPENAI_API_KEY", "prefixed")
+        monkeypatch.setenv("YT2MD_GOOGLE_API_KEY", "g")
+        cfg = Config()  # type: ignore[call-arg]
+        assert cfg.openai_api_key is not None
+        assert cfg.openai_api_key.get_secret_value() == "prefixed"
+
+
 class TestKwargOverridesEnv:
     def test_kwarg_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("YT2MD_OUTPUT_DIR", "/from/env")

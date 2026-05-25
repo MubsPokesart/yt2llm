@@ -6,6 +6,7 @@ import subprocess  # noqa: S404
 from typing import TYPE_CHECKING
 
 from yt2md.errors import TranscriptionError
+from yt2md.ffmpeg_preflight import require_ffmpeg_tool
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -17,8 +18,9 @@ def compress(*, source: Path, destination: Path, cfg: Config) -> None:
     """Re-encode `source` to `destination` as Opus mono at cfg.audio_bitrate_kbps.
 
     Uses libopus with `voip` application tuning, optimized for speech.
-    Raises TranscriptionError on ffmpeg failure.
+    Raises ConfigError if ffmpeg is missing; TranscriptionError on ffmpeg failure.
     """
+    require_ffmpeg_tool("ffmpeg")
     destination.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "ffmpeg",

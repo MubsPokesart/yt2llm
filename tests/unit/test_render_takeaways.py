@@ -43,7 +43,7 @@ def doc_with_takeaways() -> StructuredDoc:
         quotes=[],
         sections=[],
         open_questions=[],
-        speaker_name_map={},
+        speaker_mappings=[],
     )
 
 

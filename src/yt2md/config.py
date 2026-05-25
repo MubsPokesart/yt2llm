@@ -1,9 +1,10 @@
 """Configuration loading for yt2llm.
 
-Precedence (12-factor): CLI flag > env var > TOML file > default.
+Precedence: CLI flag > env var > default.
 
-env_prefix is YT2MD_. So YT2MD_OUTPUT_DIR sets output_dir.
-TOML files searched (later wins): ~/.config/yt2md/config.toml, ./yt2md.toml.
+Env vars use the YT2MD_ prefix (e.g. YT2MD_OUTPUT_DIR sets output_dir). API key
+fields also accept the bare OPENAI_API_KEY / GOOGLE_API_KEY names so users can
+follow the OpenAI / Google docs verbatim; YT2MD_-prefixed values win on collision.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr  # noqa: TC002  -- Pydantic needs runtime import
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,16 +20,19 @@ class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="YT2MD_",
         env_file=".env",
-        toml_file=[
-            Path.home() / ".config" / "yt2md" / "config.toml",
-            Path("yt2md.toml"),
-        ],
         extra="ignore",
+        populate_by_name=True,
     )
 
-    # API keys
-    openai_api_key: SecretStr | None = None
-    google_api_key: SecretStr
+    # API keys — accept both the project-prefixed name (wins on collision) and the
+    # convention bare name that OpenAI / Google docs tell users to export.
+    openai_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("YT2MD_OPENAI_API_KEY", "OPENAI_API_KEY"),
+    )
+    google_api_key: SecretStr = Field(
+        validation_alias=AliasChoices("YT2MD_GOOGLE_API_KEY", "GOOGLE_API_KEY"),
+    )
 
     # Paths
     output_dir: Path = Path("./output")

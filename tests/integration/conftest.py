@@ -12,6 +12,7 @@ from yt2md.models import (
     CURRENT_SCHEMA_VERSION,
     Frontmatter,
     Segment,
+    SpeakerMapping,
     StructuredDoc,
     Takeaway,
     Transcript,
@@ -97,7 +98,7 @@ def _make_structured_doc() -> StructuredDoc:
         quotes=[],
         sections=[],
         open_questions=[],
-        speaker_name_map={"SPEAKER_00": "Alice"},
+        speaker_mappings=[SpeakerMapping(label="SPEAKER_00", display_name="Alice")],
     )
 
 

@@ -6,7 +6,7 @@ video_id: abc123
 published: 2024-03-15
 duration_seconds: 5025
 captured_at: 2026-05-23
-schema_version: 1
+schema_version: 2
 genre: podcast
 speakers: ["Andrew Huberman"]
 topics: ["dopamine", "motivation"]

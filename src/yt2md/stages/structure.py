@@ -11,11 +11,12 @@ from importlib import resources
 from typing import TYPE_CHECKING, Any
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from pydantic import ValidationError
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -26,6 +27,20 @@ from yt2md.models import StructuredDoc
 if TYPE_CHECKING:
     from yt2md.config import Config
     from yt2md.models import Transcript, VideoMetadata
+
+RATE_LIMIT_CODE = 429
+
+
+def _is_transient_gemini_error(exc: BaseException) -> bool:
+    """True for errors worth retrying: 5xx, 429 rate limits, network-layer timeouts."""
+    if isinstance(exc, TimeoutError | ConnectionError):
+        return True
+    if isinstance(exc, genai_errors.ServerError):
+        return True
+    if isinstance(exc, genai_errors.ClientError):
+        return getattr(exc, "code", None) == RATE_LIMIT_CODE
+    return False
+
 
 PROMPT_VERSION = 1
 DESCRIPTION_MAX_CHARS = 1000
@@ -130,8 +145,10 @@ def _check_timestamps(stamps: list[float], duration_s: float, field_name: str) -
 
 GEMINI_TEMPERATURE = 0.2
 MAX_OUTPUT_TOKENS = 20000
-SEED_MODULUS = 2**31
 MAX_STRUCTURE_ATTEMPTS = 2
+
+
+_STRUCTURE_RETRY_EXCS = (ValidationError, InvalidStructuredOutputError, json.JSONDecodeError)
 
 
 def structure(
@@ -145,30 +162,35 @@ def structure(
     Raises InvalidStructuredOutputError if the second attempt also fails.
     """
     prompt = build_structure_prompt(transcript, metadata)
-    last_error: Exception | None = None
-
     for attempt in range(1, MAX_STRUCTURE_ATTEMPTS + 1):
         try:
-            response = _call_gemini(prompt, cfg=cfg)
-            raw = json.loads(response.text)
-            doc = StructuredDoc.model_validate(raw)
-            validate_structured_doc(doc, transcript=transcript, metadata=metadata)
-        except (ValidationError, InvalidStructuredOutputError, json.JSONDecodeError) as e:
-            last_error = e
+            return _attempt_structure(prompt, transcript, metadata, cfg)
+        except _STRUCTURE_RETRY_EXCS as e:
             if attempt == MAX_STRUCTURE_ATTEMPTS:
                 msg = f"Gemini output failed validation after retry: {e}"
                 raise InvalidStructuredOutputError(msg) from e
-            # Append validation feedback to the prompt and try again.
-            prompt = (
-                f"{prompt}\n\n# Previous attempt failed validation\n\n{e!s}\n\n"
-                "Please retry, fixing the issue above."
-            )
-            continue
-        else:
-            return doc
+            prompt = _append_retry_feedback(prompt, e)
+    raise AssertionError  # loop exits via return or raise above
 
-    msg = f"Unreachable: last_error={last_error}"
-    raise InvalidStructuredOutputError(msg)
+
+def _attempt_structure(
+    prompt: str,
+    transcript: Transcript,
+    metadata: VideoMetadata,
+    cfg: Config,
+) -> StructuredDoc:
+    response = _call_gemini(prompt, cfg=cfg)
+    raw = json.loads(response.text)
+    doc = StructuredDoc.model_validate(raw)
+    validate_structured_doc(doc, transcript=transcript, metadata=metadata)
+    return doc
+
+
+def _append_retry_feedback(prompt: str, error: Exception) -> str:
+    return (
+        f"{prompt}\n\n# Previous attempt failed validation\n\n{error!s}\n\n"
+        "Please retry, fixing the issue above."
+    )
 
 
 def _call_gemini(prompt: str, *, cfg: Config) -> Any:  # noqa: ANN401
@@ -176,48 +198,24 @@ def _call_gemini(prompt: str, *, cfg: Config) -> Any:  # noqa: ANN401
     return _call_gemini_inner(prompt, cfg)
 
 
-def _strip_unsupported_schema_keys(node: Any) -> None:  # noqa: ANN401
-    """Recursively remove JSON Schema keys that Gemini's Developer API rejects.
-
-    The Gemini SDK validates `response_schema` client-side via
-    `_raise_for_unsupported_mldev_properties` and rejects `additionalProperties`
-    (only Vertex/Enterprise mode accepts it). Pydantic emits this key for any
-    `dict[K, V]` field — e.g., StructuredDoc.speaker_name_map. Strip in place.
-    Pydantic-validation of the response (structure.py:154) preserves type safety.
-    """
-    if isinstance(node, dict):
-        node.pop("additionalProperties", None)
-        node.pop("additional_properties", None)
-        for v in node.values():
-            _strip_unsupported_schema_keys(v)
-    elif isinstance(node, list):
-        for item in node:
-            _strip_unsupported_schema_keys(item)
-
-
-def _build_gemini_schema() -> dict[str, Any]:
-    """Build the StructuredDoc JSON schema for Gemini's Developer API."""
-    schema: dict[str, Any] = StructuredDoc.model_json_schema()
-    _strip_unsupported_schema_keys(schema)
-    return schema
-
-
 @retry(
-    retry=retry_if_exception_type((TimeoutError, ConnectionError)),
+    retry=retry_if_exception(_is_transient_gemini_error),
     wait=wait_exponential(multiplier=2, min=2, max=30),
     stop=stop_after_attempt(4),
     reraise=True,
 )
 def _call_gemini_inner(prompt: str, cfg: Config) -> Any:  # noqa: ANN401
     client = genai.Client(api_key=cfg.google_api_key.get_secret_value())
+    # `response_json_schema` bypasses the SDK's client-side `additionalProperties`
+    # validator (a Developer-API-only quirk filed upstream as googleapis/python-genai#1815),
+    # so we can hand the raw Pydantic schema in without preprocessing.
     return client.models.generate_content(
         model=cfg.structuring_model,
         contents=prompt,
         config=genai_types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=_build_gemini_schema(),
+            response_json_schema=StructuredDoc.model_json_schema(),
             temperature=GEMINI_TEMPERATURE,
-            seed=hash(prompt) % SEED_MODULUS,
             max_output_tokens=MAX_OUTPUT_TOKENS,
             safety_settings=[
                 genai_types.SafetySetting(

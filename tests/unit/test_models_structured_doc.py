@@ -9,6 +9,7 @@ from yt2md.models import (
     Frontmatter,
     Quote,
     Reference,
+    SpeakerMapping,
     StructuredDoc,
     Takeaway,
 )
@@ -43,7 +44,7 @@ class TestStructuredDoc:
             quotes=[],
             sections=[],
             open_questions=[],
-            speaker_name_map={"SPEAKER_00": "A"},
+            speaker_mappings=[SpeakerMapping(label="SPEAKER_00", display_name="A")],
         )
         assert doc.tldr == "Short."
 
@@ -57,7 +58,7 @@ class TestStructuredDoc:
             quotes=[Quote(text="q", speaker="A", timestamp_s=3.0)],
             sections=[DetailedSection(heading="H", body="B", timestamp_s=4.0)],
             open_questions=["?"],
-            speaker_name_map={"SPEAKER_00": "A"},
+            speaker_mappings=[SpeakerMapping(label="SPEAKER_00", display_name="A")],
         )
         back = StructuredDoc.model_validate_json(doc.model_dump_json())
         assert back == doc

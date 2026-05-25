@@ -7,7 +7,7 @@
     "published": "2024-03-15",
     "duration_seconds": 5025,
     "captured_at": "2026-05-23",
-    "schema_version": 1,
+    "schema_version": 2,
     "genre": "podcast",
     "speakers": ["Andrew Huberman"],
     "topics": ["dopamine", "motivation"],
@@ -31,5 +31,5 @@
     {"heading": "What dopamine does", "body": "Huberman opens by distinguishing tonic and phasic dopamine.", "timestamp_s": 0.0}
   ],
   "open_questions": ["D1 vs D2 receptor roles?"],
-  "speaker_name_map": {"SPEAKER_00": "Andrew Huberman"}
+  "speaker_mappings": [{"label": "SPEAKER_00", "display_name": "Andrew Huberman"}]
 }

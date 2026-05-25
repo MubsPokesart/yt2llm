@@ -148,11 +148,20 @@ class Frontmatter(BaseModel):
     works_mentioned: list[str]
 
 
+class SpeakerMapping(BaseModel):
+    """One SPEAKER_NN label → human display name."""
+
+    model_config = ConfigDict(frozen=True)
+
+    label: str
+    display_name: str
+
+
 # Bump this when the StructuredDoc schema changes meaning (renamed fields,
 # restructured sections, changed semantics). Adding an optional field does NOT bump.
 # Bumping invalidates schema_version checks in existing output files and is
 # required to make `yt2md regen --all` regenerate them.
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 class StructuredDoc(BaseModel):
@@ -166,4 +175,4 @@ class StructuredDoc(BaseModel):
     quotes: list[Quote]
     sections: list[DetailedSection]
     open_questions: list[str]
-    speaker_name_map: dict[str, str]
+    speaker_mappings: list[SpeakerMapping]

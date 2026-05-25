@@ -1,13 +1,20 @@
-"""yt2md CLI — typer entry point. Thin wrapper over pipeline.run()."""
+"""yt2md CLI — typer entry point. Thin wrapper over pipeline.run().
+
+The user-facing form `yt2md <URL>` is preserved by `main_entry`: it inspects sys.argv,
+and if the first positional token is not a known subcommand it inserts `run` so the
+URL goes through the `run` command. Inside the typer app there is no
+default-command machinery — every invocation is an explicit subcommand, so unknown
+options error loudly instead of being silently swallowed.
+"""
 
 from __future__ import annotations
 
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Annotated
 
-import click
 import typer
 
 from yt2md import __version__
@@ -26,38 +33,11 @@ from yt2md.stages.download import _extract_video_id
 
 FRONTMATTER_HEAD_BYTES = 2000
 
-
-class _DefaultCommandGroup(typer.core.TyperGroup):
-    """TyperGroup that routes unknown positional tokens to the callback.
-
-    When the first remaining positional token is not a registered subcommand,
-    Click would normally fail with NoSuchCommand.  This subclass detects that
-    case and moves ``_protected_args`` back into ``ctx.args`` so the callback
-    can pick up the raw URL from ``ctx.args``.
-    """
-
-    def invoke(self, ctx: click.Context) -> object:
-        protected: list[str] = getattr(ctx, "_protected_args", [])
-        if protected and protected[0] not in self.commands:
-            ctx.args = protected + list(ctx.args)
-            ctx._protected_args = []  # noqa: SLF001
-            return click.Command.invoke(self, ctx)
-        return super().invoke(ctx)
-
-
 app = typer.Typer(
     name="yt2md",
     help="Turn YouTube videos into structured markdown for an LLM knowledge graph.",
     add_completion=False,
     no_args_is_help=True,
-    cls=_DefaultCommandGroup,
-    # allow_extra_args + ignore_unknown_options: unknown tokens pass through to ctx.args.
-    # allow_interspersed_args is intentionally left at the default (False) so that options
-    # belonging to subcommands (e.g. regen --output-dir) are NOT consumed at the group level.
-    context_settings={
-        "allow_extra_args": True,
-        "ignore_unknown_options": True,
-    },
 )
 
 
@@ -91,36 +71,22 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit
 
 
-def _pop_option(args: list[str], flag: str) -> tuple[str | None, list[str]]:
-    """Extract the first ``--flag VALUE`` pair from *args*.
-
-    Returns ``(value, remaining_args)`` where *value* is ``None`` if not found.
-    """
-    remaining: list[str] = []
-    value: str | None = None
-    i = 0
-    while i < len(args):
-        if args[i] == flag and i + 1 < len(args):
-            value = args[i + 1]
-            i += 2
-        else:
-            remaining.append(args[i])
-            i += 1
-    return value, remaining
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = False,
+) -> None:
+    """yt2md — turn YouTube videos into structured markdown."""
 
 
-def _pop_flag(args: list[str], flag: str) -> tuple[bool, list[str]]:
-    """Extract a boolean flag from *args*.
-
-    Returns ``(True, remaining_args)`` if *flag* is present, else ``(False, args)``.
-    """
-    if flag in args:
-        return True, [a for a in args if a != flag]
-    return False, args
-
-
-def _absorb_extra_args(
-    extra: list[str],
+def _build_run_overrides(
     cache_dir: Path | None,
     output_dir: Path | None,
     backend: str | None,
@@ -128,48 +94,26 @@ def _absorb_extra_args(
     cookies_file: Path | None,
     force: bool,
     no_cache: bool,
-) -> tuple[str | None, Path | None, Path | None, str | None, str | None, Path | None, bool, bool]:
-    """Re-parse options from *extra* tokens (args that fell through after the URL).
-
-    With ``allow_interspersed_args=False``, any option typed after the URL ends up in
-    ``ctx.args`` unparsed.  This helper recovers those values and returns updated
-    overrides alongside the extracted URL.
-    """
-    url: str | None = next((a for a in extra if not a.startswith("-")), None)
-    if cache_dir is None:
-        raw, extra = _pop_option(extra, "--cache-dir")
-        if raw is not None:
-            cache_dir = Path(raw)
-    if output_dir is None:
-        raw, extra = _pop_option(extra, "--output-dir")
-        if raw is not None:
-            output_dir = Path(raw)
-    if backend is None:
-        raw, extra = _pop_option(extra, "--backend")
-        if raw is not None:
-            backend = raw
-    if cookies_from_browser is None:
-        raw, extra = _pop_option(extra, "--cookies-from-browser")
-        if raw is not None:
-            cookies_from_browser = raw
-    if cookies_file is None:
-        raw, extra = _pop_option(extra, "--cookies")
-        if raw is not None:
-            cookies_file = Path(raw)
-    if not force:
-        found, extra = _pop_flag(extra, "--force")
-        if found:
-            force = True
-    if not no_cache:
-        found, extra = _pop_flag(extra, "--no-cache")
-        if found:
-            no_cache = True
-    return url, cache_dir, output_dir, backend, cookies_from_browser, cookies_file, force, no_cache
+) -> dict[str, object]:
+    overrides: dict[str, object] = {}
+    if cache_dir is not None:
+        overrides["cache_dir"] = cache_dir
+    if output_dir is not None:
+        overrides["output_dir"] = output_dir
+    if backend is not None:
+        overrides["transcription_backend"] = backend
+    if cookies_from_browser is not None:
+        overrides["cookies_from_browser"] = cookies_from_browser
+    if cookies_file is not None:
+        overrides["cookies_file"] = cookies_file
+    overrides["force"] = force
+    overrides["no_cache"] = no_cache
+    return overrides
 
 
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
+@app.command("run")
+def run_main(
+    url: Annotated[str, typer.Argument(help="YouTube video URL")],
     cache_dir: Annotated[Path | None, typer.Option("--cache-dir", help="Cache directory")] = None,
     output_dir: Annotated[
         Path | None, typer.Option("--output-dir", help="Output directory")
@@ -202,55 +146,12 @@ def main(
         int,
         typer.Option("-v", "--verbose", count=True, help="-v for INFO, -vv for DEBUG"),
     ] = 0,
-    version: Annotated[
-        bool,
-        typer.Option(
-            "--version",
-            callback=_version_callback,
-            is_eager=True,
-            help="Show version and exit",
-        ),
-    ] = False,
 ) -> None:
     """Process a YouTube URL into Tier 3 structured markdown."""
-    if ctx.invoked_subcommand is not None:
-        return
-
-    # ctx.args holds tokens that couldn't be parsed at group level (everything after
-    # the URL, since allow_interspersed_args=False stops option parsing at first
-    # positional).  Recover the URL and any options that followed it.
-    url, cache_dir, output_dir, backend, cookies_from_browser, cookies_file, force, no_cache = (
-        _absorb_extra_args(
-            list(ctx.args),
-            cache_dir,
-            output_dir,
-            backend,
-            cookies_from_browser,
-            cookies_file,
-            force,
-            no_cache,
-        )
-    )
-
-    if url is None:
-        typer.echo("Error: URL is required", err=True)
-        raise typer.Exit(1)
-
     configure_logging(verbosity=verbose)
-
-    overrides: dict[str, object] = {}
-    if cache_dir is not None:
-        overrides["cache_dir"] = cache_dir
-    if output_dir is not None:
-        overrides["output_dir"] = output_dir
-    if backend is not None:
-        overrides["transcription_backend"] = backend
-    if cookies_from_browser is not None:
-        overrides["cookies_from_browser"] = cookies_from_browser
-    if cookies_file is not None:
-        overrides["cookies_file"] = cookies_file
-    overrides["force"] = force
-    overrides["no_cache"] = no_cache
+    overrides = _build_run_overrides(
+        cache_dir, output_dir, backend, cookies_from_browser, cookies_file, force, no_cache
+    )
 
     try:
         cfg = Config(**overrides)  # type: ignore[arg-type]
@@ -258,7 +159,6 @@ def main(
         typer.echo(f"Configuration error: {e}", err=True)
         raise typer.Exit(3) from e
 
-    # Idempotency check
     if not cfg.force:
         existing, _ = _derive_expected_output(url, cfg)
         if existing is not None:
@@ -370,3 +270,29 @@ def _extract_url_from_frontmatter(path: Path) -> str | None:
         return None
     match = _FM_URL_RE.search(text)
     return match.group(1) if match else None
+
+
+_KNOWN_SUBCOMMANDS = frozenset({"run", "regen"})
+
+
+def _inject_default_subcommand(argv: list[str]) -> list[str]:
+    """Insert `run` before the first positional if no subcommand was given.
+
+    Preserves the user-facing `yt2md <URL>` form without needing a default-command
+    Click subclass. Top-level flags (--version, --help) and explicit subcommands pass
+    through unchanged.
+    """
+    if not argv:
+        return argv
+    first = argv[0]
+    if first.startswith("-"):  # --version, --help, etc.
+        return argv
+    if first in _KNOWN_SUBCOMMANDS:
+        return argv
+    return ["run", *argv]
+
+
+def main_entry() -> None:
+    """Console-script entrypoint: preprocess argv, then hand off to typer."""
+    sys.argv = [sys.argv[0], *_inject_default_subcommand(sys.argv[1:])]
+    app()

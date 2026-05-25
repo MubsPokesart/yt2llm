@@ -22,7 +22,7 @@ dependencies = [
 local = ["faster-whisper>=1.0"]
 
 [project.scripts]
-yt2md = "yt2md.cli:app"
+yt2md = "yt2md.cli:main_entry"
 
 [dependency-groups]
 dev = [

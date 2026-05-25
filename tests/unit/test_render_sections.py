@@ -45,7 +45,7 @@ def _doc(
         quotes=quotes or [],
         sections=[],
         open_questions=[],
-        speaker_name_map={},
+        speaker_mappings=[],
     )
 
 

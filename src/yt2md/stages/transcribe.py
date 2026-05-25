@@ -75,7 +75,13 @@ def transcribe(
     Returns (stitched_transcript, list_of_raw_responses).
     """
     backend = resolve_backend(cfg)
-    backend_fn = _backend_function(backend)
+    # Build inside the call so tests can `patch("yt2md.stages.transcribe.transcribe_openai")`
+    # and the patch is honored. Module-level dict would capture the import-time reference.
+    backends: dict[ResolvedBackend, Callable[..., tuple[Transcript, dict[str, Any]]]] = {
+        "openai_transcribe": transcribe_openai,
+        "local_whisper": transcribe_local,
+    }
+    backend_fn = backends[backend]
 
     if not needs_chunking(audio, backend=backend, cfg=cfg):
         transcript, raw = backend_fn(audio, metadata, cfg=cfg)
@@ -94,14 +100,3 @@ def transcribe(
         offsets_s=[c.start_offset_s for c in chunks],
     )
     return stitched, chunk_raws
-
-
-def _backend_function(
-    backend: ResolvedBackend,
-) -> Callable[..., tuple[Transcript, dict[str, Any]]]:
-    if backend == "openai_transcribe":
-        return transcribe_openai
-    if backend == "local_whisper":
-        return transcribe_local
-    msg = f"Unknown resolved backend: {backend}"
-    raise ConfigError(msg)

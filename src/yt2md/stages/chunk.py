@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from yt2md.config import Config
 
+from yt2md.ffmpeg_preflight import require_ffmpeg_tool
 from yt2md.models import Segment, Transcript, Word
 
 
@@ -112,12 +113,15 @@ def needs_chunking(audio: Path, *, backend: str, cfg: Config) -> bool:  # noqa: 
     size_mb = audio.stat().st_size / _BYTES_PER_MB
     if size_mb > SIZE_CAP_MB.get(backend, _DEFAULT_SIZE_CAP_MB):
         return True
+    require_ffmpeg_tool("ffprobe")
     duration = _ffprobe_duration(audio)
     return duration > DURATION_CAP_S.get(backend, _DEFAULT_DURATION_CAP_S)
 
 
 def split_at_silence(audio: Path, *, backend: str, cfg: Config) -> list[Chunk]:  # noqa: ARG001
     """Split `audio` into ~80%-of-cap chunks at silence boundaries."""
+    require_ffmpeg_tool("ffmpeg")
+    require_ffmpeg_tool("ffprobe")
     duration = _ffprobe_duration(audio)
     target_chunk_s = DURATION_CAP_S[backend] * 0.8
     num_chunks = max(

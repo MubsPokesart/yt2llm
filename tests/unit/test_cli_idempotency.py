@@ -26,6 +26,7 @@ class TestSkipOnOutputExists:
             result = runner.invoke(
                 app,
                 [
+                    "run",
                     "https://www.youtube.com/watch?v=abc123",
                     "--cache-dir",
                     str(tmp_path / "cache"),
@@ -53,6 +54,7 @@ class TestForceOverridesSkip:
             result = runner.invoke(
                 app,
                 [
+                    "run",
                     "https://www.youtube.com/watch?v=abc123",
                     "--cache-dir",
                     str(cache_dir),

@@ -9,6 +9,7 @@ from yt2md.models import (
     CURRENT_SCHEMA_VERSION,
     Frontmatter,
     Quote,
+    SpeakerMapping,
     StructuredDoc,
     Takeaway,
     Transcript,
@@ -24,7 +25,7 @@ def _doc(
     takeaways: list[Takeaway] | None = None,
     tldr: str = "Non-empty.",
     quotes: list[Quote] | None = None,
-    speaker_name_map: dict[str, str] | None = None,
+    speaker_mappings: list[SpeakerMapping] | None = None,
 ) -> StructuredDoc:
     return StructuredDoc(
         frontmatter=Frontmatter(
@@ -49,7 +50,7 @@ def _doc(
         quotes=quotes or [],
         sections=[],
         open_questions=[],
-        speaker_name_map=speaker_name_map or {},
+        speaker_mappings=speaker_mappings or [],
     )
 
 

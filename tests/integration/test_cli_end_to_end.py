@@ -21,6 +21,7 @@ def test_end_to_end_produces_markdown(
     result = runner.invoke(
         app,
         [
+            "run",
             "https://www.youtube.com/watch?v=abc123",
             "--cache-dir",
             str(cache_dir),

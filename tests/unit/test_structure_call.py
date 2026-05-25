@@ -4,10 +4,10 @@ import json
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from google.genai import _transformers  # noqa: PLC2701  -- SDK's private validator
+from google.genai import errors as genai_errors
 
 from yt2md.config import Config
 from yt2md.errors import InvalidStructuredOutputError
@@ -18,7 +18,7 @@ from yt2md.models import (
     VideoMetadata,
 )
 from yt2md.stages.structure import (
-    _build_gemini_schema,  # noqa: PLC2701  -- testing private boundary helper
+    _call_gemini_inner,  # noqa: PLC2701  -- testing retry decorator behavior
     structure,
 )
 
@@ -87,7 +87,7 @@ def _valid_response_json() -> str:
         "quotes": [],
         "sections": [],
         "open_questions": [],
-        "speaker_name_map": {},
+        "speaker_mappings": [],
     })
 
 
@@ -111,47 +111,101 @@ class TestStructureHappy:
         assert len(doc.takeaways) == 3
 
 
-class TestGeminiDeveloperApiSchemaCompat:
-    """The schema we hand to Gemini's Developer API must avoid keywords like
-    `additionalProperties` that only Vertex/Enterprise mode supports.
+class TestGeminiUsesResponseJsonSchema:
+    """We pass the full Pydantic schema via `response_json_schema` (not `response_schema`).
 
-    Regression: StructuredDoc.speaker_name_map (dict[str, str]) caused Pydantic
-    to emit `additionalProperties` in the JSON Schema. The Gemini SDK validates
-    this client-side and raises ValueError before any network call.
+    The SDK validates `response_schema` client-side via `_raise_for_unsupported_mldev_properties`,
+    rejecting `additionalProperties` on the Developer API even though the server accepts it
+    (filed upstream as googleapis/python-genai#1815). The `response_json_schema` field
+    bypasses that validator. Using it lets us hand the raw Pydantic schema in without
+    pre-processing.
     """
 
-    def test_response_schema_excludes_additional_properties_anywhere(self) -> None:
-        """Walk the schema; assert no `additionalProperties` at any nesting depth.
+    def test_call_uses_response_json_schema_not_response_schema(self, cfg: Config) -> None:
+        fake_models = MagicMock()
+        fake_models.generate_content.return_value = _fake_gemini_response(_valid_response_json())
+        client = MagicMock()
+        client.models = fake_models
+        with patch("yt2md.stages.structure.genai.Client", return_value=client):
+            _call_gemini_inner("prompt", cfg)
+        config = fake_models.generate_content.call_args.kwargs["config"]
+        assert config.response_json_schema is not None
+        assert config.response_schema is None
 
-        Catches: any future dict[K, V] field added to StructuredDoc or its nested
-        models whose `additionalProperties` slips past the boundary helper.
-        """
-        schema = _build_gemini_schema()
-        offenders: list[str] = []
 
-        def walk(node: object, path: str) -> None:
-            if isinstance(node, dict):
-                if "additionalProperties" in node or "additional_properties" in node:
-                    offenders.append(path or "$")
-                for k, v in node.items():
-                    walk(v, f"{path}.{k}")
-            elif isinstance(node, list):
-                for i, v in enumerate(node):
-                    walk(v, f"{path}[{i}]")
+class TestGeminiTransientRetry:
+    """Tenacity retry on _call_gemini_inner must cover the SDK's own transient errors.
 
-        walk(schema, "")
-        assert not offenders, (
-            f"Gemini Developer API rejects `additionalProperties`; found at: {offenders}"
+    The OpenAI backend retries on RateLimitError / InternalServerError. The Gemini
+    backend must mirror that: a 429 ClientError or 5xx ServerError should back off
+    and retry, not fail the first attempt. Compare openai.py:106-111.
+    """
+
+    def _patched_client(self, side_effect: list[object]) -> MagicMock:
+        fake_models = MagicMock()
+        fake_models.generate_content.side_effect = side_effect
+        client = MagicMock()
+        client.models = fake_models
+        return client
+
+    def test_retries_on_server_error_then_succeeds(self, cfg: Config) -> None:
+        responses = [
+            genai_errors.ServerError(503, {"error": {"message": "unavailable"}}),
+            _fake_gemini_response(_valid_response_json()),
+        ]
+        client = self._patched_client(responses)
+        with patch("yt2md.stages.structure.genai.Client", return_value=client):
+            result = _call_gemini_inner("prompt", cfg)
+        assert client.models.generate_content.call_count == 2
+        assert result.text == _valid_response_json()
+
+    def test_retries_on_rate_limit_client_error(self, cfg: Config) -> None:
+        responses = [
+            genai_errors.ClientError(429, {"error": {"message": "rate limited"}}),
+            _fake_gemini_response(_valid_response_json()),
+        ]
+        client = self._patched_client(responses)
+        with patch("yt2md.stages.structure.genai.Client", return_value=client):
+            result = _call_gemini_inner("prompt", cfg)
+        assert client.models.generate_content.call_count == 2
+        assert result.text == _valid_response_json()
+
+    def test_does_not_retry_on_4xx_other_than_429(self, cfg: Config) -> None:
+        """A 400 invalid-request should fail fast — retrying won't fix bad input."""
+        responses = [
+            genai_errors.ClientError(400, {"error": {"message": "bad request"}}),
+        ]
+        client = self._patched_client(responses)
+        with (
+            patch("yt2md.stages.structure.genai.Client", return_value=client),
+            pytest.raises(genai_errors.ClientError),
+        ):
+            _call_gemini_inner("prompt", cfg)
+        assert client.models.generate_content.call_count == 1
+
+
+class TestGeminiCallConfigDeterminism:
+    """Gemini call must NOT set seed from Python's built-in hash().
+
+    Python's hash() is salted per interpreter (PYTHONHASHSEED). A seed derived from
+    hash(prompt) is non-deterministic across processes — undermining the
+    determinism it appears to provide. Drop it; temperature=0.2 already pins variance.
+    """
+
+    def test_no_python_hash_seed_in_generate_content_config(self, cfg: Config) -> None:
+        fake_models = MagicMock()
+        fake_models.generate_content.return_value = _fake_gemini_response(_valid_response_json())
+        client = MagicMock()
+        client.models = fake_models
+        with patch("yt2md.stages.structure.genai.Client", return_value=client):
+            _call_gemini_inner("prompt-text", cfg)
+        kwargs = fake_models.generate_content.call_args.kwargs
+        config = kwargs["config"]
+        # Either no seed attribute, or seed is None — both mean "not using hash()".
+        assert getattr(config, "seed", None) is None, (
+            f"Gemini call should not set seed (Python hash() is per-process salted); "
+            f"got seed={config.seed}"
         )
-
-    def test_response_schema_passes_sdk_developer_api_check(self) -> None:
-        """Run the Gemini SDK's own validator on our schema.
-
-        Forward-safe: if the SDK rejects more keywords in a future release,
-        this test breaks the moment we upgrade, telling us exactly what to strip.
-        """
-        stub_client = SimpleNamespace(vertexai=False)
-        _transformers.process_schema(_build_gemini_schema(), stub_client)
 
 
 class TestStructureRetryOnValidation:

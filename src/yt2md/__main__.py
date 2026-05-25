@@ -1,6 +1,6 @@
 """Allow `python -m yt2md` invocation."""
 
-from yt2md.cli import app
+from yt2md.cli import main_entry
 
 if __name__ == "__main__":
-    app()
+    main_entry()

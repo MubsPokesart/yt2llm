@@ -1,5 +1,5 @@
 ---
-version: 1
+version: 2
 ---
 
 You are extracting a structured knowledge-graph node from a YouTube video transcript.
@@ -25,9 +25,12 @@ Produce a JSON document matching the supplied schema. The document should be den
 - `people_mentioned`: names of people referenced in the content but not present as speakers.
 - `works_mentioned`: books, papers, products, or other named works cited.
 
-## speaker_name_map
+## speaker_mappings
 
-A dictionary mapping `SPEAKER_NN` → human name (e.g., `{"SPEAKER_00": "Andrew Huberman"}`). Infer names from the transcript content (introductions, self-references, channel name). Leave empty if the transcript is undiarized.
+A list of `{label, display_name}` entries mapping each `SPEAKER_NN` label to a human name
+(e.g., `[{"label": "SPEAKER_00", "display_name": "Andrew Huberman"}]`). Infer names from
+the transcript content (introductions, self-references, channel name). Leave empty if the
+transcript is undiarized.
 
 ## tldr
 

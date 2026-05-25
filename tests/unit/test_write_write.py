@@ -32,7 +32,7 @@ def _doc(title: str = "T", channel: str = "C", video_id: str = "vid") -> Structu
         quotes=[],
         sections=[],
         open_questions=[],
-        speaker_name_map={},
+        speaker_mappings=[],
     )
 
 

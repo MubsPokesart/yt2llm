@@ -4,7 +4,7 @@ Requirements:
   - Sections labeled ## Full Cleaned Transcript
   - Words grouped into ~60s paragraphs with [mm:ss] timestamp markers at block start
   - Speaker change forces a new paragraph (even if under 60s)
-  - SPEAKER_NN labels substituted using doc.speaker_name_map
+  - SPEAKER_NN labels substituted using doc.speaker_mappings
 """
 
 from datetime import date
@@ -13,6 +13,7 @@ from yt2md.models import (
     CURRENT_SCHEMA_VERSION,
     Frontmatter,
     Segment,
+    SpeakerMapping,
     StructuredDoc,
     Transcript,
     Word,
@@ -20,7 +21,10 @@ from yt2md.models import (
 from yt2md.stages.render import render
 
 
-def _doc(speaker_name_map: dict[str, str]) -> StructuredDoc:
+def _doc(mappings: dict[str, str]) -> StructuredDoc:
+    speaker_mappings = [
+        SpeakerMapping(label=label, display_name=name) for label, name in mappings.items()
+    ]
     fm = Frontmatter(
         title="T",
         channel="C",
@@ -31,7 +35,7 @@ def _doc(speaker_name_map: dict[str, str]) -> StructuredDoc:
         captured_at=date(2026, 5, 23),
         schema_version=CURRENT_SCHEMA_VERSION,
         genre="podcast",
-        speakers=list(speaker_name_map.values()) or ["A"],
+        speakers=list(mappings.values()) or ["A"],
         topics=[],
         people_mentioned=[],
         works_mentioned=[],
@@ -45,7 +49,7 @@ def _doc(speaker_name_map: dict[str, str]) -> StructuredDoc:
         quotes=[],
         sections=[],
         open_questions=[],
-        speaker_name_map=speaker_name_map,
+        speaker_mappings=speaker_mappings,
     )
 
 
